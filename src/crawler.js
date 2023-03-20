@@ -134,10 +134,14 @@ async function captureVin(vin) {
 
     vin = { ...vin, ...vout };
 
-    console.log('vin', vin);
+    if (vin.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {
+      console.log('vin', vin);
+    }
   }
 }
 
 async function captureVout(vout) {
-
+  if (vout.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {
+    console.log('vout', vout);
+  }
 }
