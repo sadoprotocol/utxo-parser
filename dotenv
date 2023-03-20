@@ -1,0 +1,3 @@
+NETWORK="regtest"
+RPCUSER="bitcoin-testnet"
+RPCPASSWORD="bitcoin-testnet"
