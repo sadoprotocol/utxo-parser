@@ -2,12 +2,16 @@
 
 const Rpc = require('../src/rpc.js');
 const Data = require('../src/data.js');
+const Mongo = require('../src/mongodb');
 
 const decimals = process.env.DECIMALS;
 
 exports.start = start;
 
 async function start() {
+  await prepare();
+
+  // Begin
   console.log('Network:', process.env.NETWORK);
 
   let currentBlockHeight = await Rpc.getBlockCount();
@@ -20,12 +24,53 @@ async function start() {
   crawl(crawlerBlockHeight, parseInt(currentBlockHeight));
 }
 
+async function prepare() {
+  const db = Mongo.getClient();
+
+  // Create collection and indexes
+  let collections = await db.listCollections().toArray();
+  let createCollections = [ 'vin', 'vout' ];
+  let createCollectionsIndex = {
+    "vin": {
+      "addressFrom": -1
+    },
+    "vout": {
+      "addressTo": -1
+    }
+  };
+
+  for (let i = 0; i < collections.length; i++) {
+    if (collections[i].type === 'collection') {
+      let index = createCollections.indexOf(collections[i].name);
+
+      if (index > -1) {
+        createCollections.splice(index, 1);
+      }
+    }
+  }
+
+  for (let i = 0; i < createCollections.length; i++) {
+    let name = createCollections[i];
+
+    await db.createCollection(name);
+
+    console.log('Created new collection' + name + '.');
+
+    if (createCollectionsIndex[name]) {
+      // Create the index
+      await db.collection(name).createIndex(createCollectionsIndex[name]);
+      console.log('Collection ' + name + ' is indexed.');
+    }
+  }
+}
+
 function crawl(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
 
   if (bn === maxBn) {
-    process.exit(0);
+    console.log('Done. Crawler is up to date.');
+    return;
   }
 
   Rpc.getBlockHash(bn).then(bh => {
