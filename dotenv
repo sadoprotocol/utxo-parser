@@ -1,3 +1,16 @@
+# CHAIN
 NETWORK="regtest"
+CURRENCY="Bitcoin"
+SYMBOL="BTC"
+DECIMALS=8
+
+# RPC
 RPCUSER="bitcoin-testnet"
 RPCPASSWORD="bitcoin-testnet"
+
+# MONGO
+MONGOHOSTNAME="localhost"
+MONGOPORT="27017"
+MONGODATABASE="bitcoin-regtest"
+MONGOUSERNAME=""
+MONGOPASSWORD=""

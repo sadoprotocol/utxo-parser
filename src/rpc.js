@@ -68,17 +68,27 @@ exports.estimateSmartFee = estimateSmartFee;
 exports.getIndexInfo = getIndexInfo;
 
 
+function sanitize(aString) {
+  return aString.replace(/(\r\n|\n|\r)/gm, "");
+}
+
+function parse(aString) {
+  return JSON.parse(aString);
+}
 
 async function getBlockHash(number) {
-  return await rpc([ 'getblockhash', number ]);
+  let res = await rpc([ 'getblockhash', number ]);
+  return sanitize(res);
 }
 
 async function getBlock(blockHash) {
-  return await rpc([ 'getblock', blockHash, 2 ]);
+  let res = await rpc([ 'getblock', blockHash, 2 ]);
+  return parse(res);
 }
 
 async function getBlockCount() {
-  return await rpc([ 'getblockcount' ]);
+  let res = await rpc([ 'getblockcount' ]);
+  return sanitize(res);
 }
 
 async function deriveAddresses(descriptor) {
@@ -86,7 +96,8 @@ async function deriveAddresses(descriptor) {
 }
 
 async function getRawTransaction(txid) {
-  return await rpc([ 'getrawtransaction', txid, true ]);
+  let res = await rpc([ 'getrawtransaction', txid, true ]);
+  return parse(res);
 }
 
 async function decodeScript(hex) {
