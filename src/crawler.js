@@ -5,6 +5,7 @@ const Data = require('../src/data.js');
 const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
+const multithreading = parseInt(process.env.CRAWLERMULTITHREAD) === 0 ? false : true;
 
 exports.start = start;
 
@@ -21,7 +22,13 @@ async function start() {
   let crawlerBlockHeight = await Data.blockHeight();
   console.log('Current crawler block height is', crawlerBlockHeight);
 
-  crawl(crawlerBlockHeight, parseInt(currentBlockHeight));
+  if (multithreading) {
+    console.log("Sprinting!");
+    sprint(crawlerBlockHeight, parseInt(currentBlockHeight));
+  } else {
+    console.log("Crawling..");
+    crawl(crawlerBlockHeight, parseInt(currentBlockHeight));
+  }
 }
 
 async function prepare() {
@@ -90,7 +97,7 @@ async function prepare() {
   }
 }
 
-function crawl(bn, maxBn) {
+function sprint(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
 
@@ -132,11 +139,58 @@ function crawl(bn, maxBn) {
         }
 
         Data.blockHeight(bn + 1).then(() => {
-          crawl(bn + 1, maxBn);
+          sprint(bn + 1, maxBn);
         });
       }
     }).catch(err => console.log("Get block hash error", err));
   }).catch(err => console.log("Get block hash error", err));
+}
+
+async function crawl(bn, maxBn) {
+  // console.log('Crawling block ', bn);
+  bn = parseInt(bn);
+
+  if (bn === maxBn) {
+    console.log('Done. Crawler is up to date.');
+    return;
+  }
+
+  let bh = await Rpc.getBlockHash(bn);
+  let b = await Rpc.getBlock(bh);
+
+  if (b && Array.isArray(b.tx)) {
+    for (let i = 0; i < b.tx.length; i++) {
+      let txid = b.tx[i].txid;
+      let txHash = b.tx[i].hash;
+
+      for (let m = 0; m < b.tx[i].vin.length; m++) {
+        if (!b.tx[i].vin[m].txid) {
+          continue;
+        }
+
+        b.tx[i].vin[m].prev_txid = b.tx[i].vin[m].txid;
+
+        b.tx[i].vin[m].blockHash = bh;
+        b.tx[i].vin[m].blockN = bn;
+        b.tx[i].vin[m].txid = txid;
+        b.tx[i].vin[m].txHash = txHash;
+
+        await captureVin(b.tx[i].vin[m], m);
+      }
+
+      for (let m = 0; m < b.tx[i].vout.length; m++) {
+        b.tx[i].vout[m].blockHash = bh;
+        b.tx[i].vout[m].blockN = bn;
+        b.tx[i].vout[m].txid = txid;
+        b.tx[i].vout[m].txHash = txHash;
+
+        await captureVout(b.tx[i].vout[m]);
+      }
+    }
+
+    await Data.blockHeight(bn + 1);
+    crawl(bn + 1, maxBn);
+  }
 }
 
 async function captureVin(vin, n) {
