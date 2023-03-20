@@ -165,7 +165,7 @@ async function captureVin(vin, n) {
     if (derived) {
       const db = Mongo.getClient();
 
-      vout.sats = vout.value * (10 ** decimals);
+      vout.sats = sats(vout.value, decimals)
       vout.addressFrom = derived[0];
 
       vin = { ...vin, ...vout };
@@ -193,7 +193,7 @@ async function captureVout(vout) {
   if (derived) {
     const db = Mongo.getClient();
 
-    vout.sats = vout.value * (10 ** decimals);
+    vout.sats = sats(vout.value, decimals)
     vout.addressTo = derived[0];
 
     await db.collection("vout").updateOne({
@@ -207,3 +207,42 @@ async function captureVout(vout) {
     });
   }
 }
+
+function sats(a, decimal) {
+  a = a + "";
+
+  let b = "";
+  let counter = decimal;
+  let begin = false;
+  let length = decimal + a.length;
+
+  for (let i = 0; i < length; i++) {
+    if (a[i] === '.') {
+      begin = true;
+      continue;
+    }
+
+    if (begin === false && a[i] === "0") {
+      continue;
+    }
+
+    let num = a[i];
+
+    if (typeof a[i] === 'undefined') {
+      num = "0";
+    }
+
+    if (begin) {
+      counter--;
+    }
+
+    b += num;
+
+    if (counter === 0) {
+      break;
+    }
+  }
+
+  return parseInt(b);
+}
+
