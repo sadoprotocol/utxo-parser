@@ -4,7 +4,7 @@ const Rpc = require('../src/rpc.js');
 const Data = require('../src/data.js');
 const Mongo = require('../src/mongodb');
 
-const decimals = process.env.DECIMALS;
+const decimals = parseInt(process.env.DECIMALS);
 
 exports.start = start;
 
