@@ -162,7 +162,73 @@ function transactions(address) {
   });
 }
 
-function unspents(address) {}
+function unspents(address) {
+  const db = Mongo.getClient();
+
+  let promises = [];
+  let pipelines = [];
+
+  pipelines.push({
+    $match: {
+      "addressFrom": address
+    }
+  });
+  pipelines.push({
+    $sort: {
+      "blockN": -1,
+      "n": 1
+    }
+  });
+  pipelines.push({
+    $project: {
+      txid: 1,
+    }
+  });
+
+  promises.push(db.collection("vin").aggregate(pipelines, { allowDiskUse:true }).toArray());
+
+  pipelines = [];
+
+  pipelines.push({
+    $match: {
+      "addressTo": address
+    }
+  });
+  pipelines.push({
+    $sort: {
+      "blockN": -1,
+      "n": 1
+    }
+  });
+  pipelines.push({
+    $project: {
+      _id: 0,
+    }
+  });
+
+  promises.push(db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray());
+
+  return new Promise((resolve, reject) => {
+    Promise.all(promises).then(res => {
+      let outs = [];
+      let doneTxids = [];
+
+      for (let i = 0; i < res[0].length; i++) {
+        if (!doneTxids.includes(res[0][i].txid)) {
+          doneTxids.push(res[0][i].txid);
+        }
+      }
+
+      for (let i = 0; i < res[1].length; i++) {
+        if (!doneTxids.includes(res[1][i].txid)) {
+          outs.push(res[1][i]);
+        }
+      }
+
+      resolve(outs);
+    }).catch(reject);
+  });
+}
 
 // ==
 
