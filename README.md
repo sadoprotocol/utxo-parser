@@ -27,6 +27,13 @@ $ cp dotenv .env
 $ npm install
 ```
 
+> Warning!
+> If you are indexing from block height 0
+> Set `CRAWLERMULTITHREAD=0` if the machine spec is low 
+> - Lower than 8GB memory
+> - Really slow CPU
+> Once it has at caught up, enabling `CRAWLERMULTITHREAD=1` should be alright.
+
 ## Usage
 
 > Perform all commands below from the root directory of the program
