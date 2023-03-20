@@ -1,5 +1,5 @@
 {
-  "name": "bitcoin-explorer",
+  "name": "nodejs-utxo",
   "version": "1.0.0",
   "description": "Explorer for bitcoin and altcoin",
   "main": "bin/index.js",
