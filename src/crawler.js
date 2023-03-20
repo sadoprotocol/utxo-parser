@@ -31,12 +31,36 @@ async function prepare() {
   let collections = await db.listCollections().toArray();
   let createCollections = [ 'vin', 'vout' ];
   let createCollectionsIndex = {
-    "vin": {
-      "addressFrom": -1
-    },
-    "vout": {
-      "addressTo": -1
-    }
+    "vin": [
+      {
+        "addressFrom": 1
+      },
+      {
+        "addressFrom": 1,
+        "txHash": 1,
+        "n": 1
+      },
+      {
+        "addressFrom": 1,
+        "blockN": -1,
+        "n": 1
+      }
+    ],
+    "vout": [
+      {
+        "addressTo": 1
+      },
+      {
+        "addressTo": 1,
+        "txHash": 1,
+        "n": 1
+      },
+      {
+        "addressTo": 1,
+        "blockN": -1,
+        "n": 1
+      }
+    ]
   };
 
   for (let i = 0; i < collections.length; i++) {
@@ -57,9 +81,11 @@ async function prepare() {
     console.log('Created new collection' + name + '.');
 
     if (createCollectionsIndex[name]) {
-      // Create the index
-      await db.collection(name).createIndex(createCollectionsIndex[name]);
-      console.log('Collection ' + name + ' is indexed.');
+      // Create the indexes
+      for (let m = 0; m < createCollectionsIndex[name].length; m++) {
+        await db.collection(name).createIndex(createCollectionsIndex[name][m]);
+        console.log('Collection ' + name + ' is indexed [' + m + '].');
+      }
     }
   }
 }
@@ -75,29 +101,31 @@ function crawl(bn, maxBn) {
 
   Rpc.getBlockHash(bn).then(bh => {
     Rpc.getBlock(bh).then(b => {
-      if (Array.isArray(b.tx)) {
+      if (b && Array.isArray(b.tx)) {
         for (let i = 0; i < b.tx.length; i++) {
           let txid = b.tx[i].txid;
-          let txhash = b.tx[i].hash;
+          let txHash = b.tx[i].hash;
 
           for (let m = 0; m < b.tx[i].vin.length; m++) {
             if (!b.tx[i].vin[m].txid) {
               continue;
             }
 
+            b.tx[i].vin[m].prev_txid = b.tx[i].vin[m].txid;
+
             b.tx[i].vin[m].blockHash = bh;
             b.tx[i].vin[m].blockN = bn;
             b.tx[i].vin[m].txid = txid;
-            b.tx[i].vin[m].txhash = txhash;
+            b.tx[i].vin[m].txHash = txHash;
 
-            captureVin(b.tx[i].vin[m]).catch(err => console.log('Error capturing vin.', err));
+            captureVin(b.tx[i].vin[m], m).catch(err => console.log('Error capturing vin.', err));
           }
 
           for (let m = 0; m < b.tx[i].vout.length; m++) {
             b.tx[i].vout[m].blockHash = bh;
             b.tx[i].vout[m].blockN = bn;
             b.tx[i].vout[m].txid = txid;
-            b.tx[i].vout[m].txhash = txhash;
+            b.tx[i].vout[m].txHash = txHash;
 
             captureVout(b.tx[i].vout[m]).catch(err => console.log('Error capturing vout.', err));
           }
@@ -111,16 +139,16 @@ function crawl(bn, maxBn) {
   }).catch(err => console.log("Get block hash error", err));
 }
 
-async function captureVin(vin) {
+async function captureVin(vin, n) {
   if (typeof vin.vout === 'undefined') {
     return false;
   }
 
-  let tx = await Rpc.getRawTransaction(vin.txid);
-  let index = vin.vout;
+  let tx = await Rpc.getRawTransaction(vin.prev_txid);
 
   if (tx) {
-    let vout = false;
+    let index = vin.vout;
+    let vout = {};
 
     if (tx.vout[index].n !== index) {
       let foundIndex = tx.vout.findIndex(item => {
@@ -132,16 +160,50 @@ async function captureVin(vin) {
       vout = tx.vout[index];
     }
 
-    vin = { ...vin, ...vout };
+    let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
 
-    if (vin.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {
-      console.log('vin', vin);
+    if (derived) {
+      const db = Mongo.getClient();
+
+      vout.sats = vout.value * (10 ** decimals);
+      vout.addressFrom = derived[0];
+
+      vin = { ...vin, ...vout };
+
+      vin.n = n;
+
+      await db.collection("vin").updateOne({
+        "addressFrom": vin.addressFrom,
+        "txHash": vin.txHash,
+        "n": n
+      }, {
+        $set: vin
+      }, {
+        upsert: true
+      });
     }
   }
 }
 
+// if (vout.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {}
+
 async function captureVout(vout) {
-  if (vout.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {
-    console.log('vout', vout);
+  let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
+
+  if (derived) {
+    const db = Mongo.getClient();
+
+    vout.sats = vout.value * (10 ** decimals);
+    vout.addressTo = derived[0];
+
+    await db.collection("vout").updateOne({
+      "addressTo": vout.addressTo,
+      "txHash": vout.txHash,
+      "n": vout.n
+    }, {
+      $set: vout
+    }, {
+      upsert: true
+    });
   }
 }

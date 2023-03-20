@@ -82,8 +82,12 @@ async function getBlockHash(number) {
 }
 
 async function getBlock(blockHash) {
-  let res = await rpc([ 'getblock', blockHash, 2 ]);
-  return parse(res);
+  try {
+    let res = await rpc([ 'getblock', blockHash, 2 ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
 }
 
 async function getBlockCount() {
@@ -92,12 +96,21 @@ async function getBlockCount() {
 }
 
 async function deriveAddresses(descriptor) {
-  return await rpc([ 'deriveaddresses', descriptor ]);
+  try {
+    let res = await rpc([ 'deriveaddresses', descriptor ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
 }
 
 async function getRawTransaction(txid) {
-  let res = await rpc([ 'getrawtransaction', txid, true ]);
-  return parse(res);
+  try {
+    let res = await rpc([ 'getrawtransaction', txid, true ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
 }
 
 async function decodeScript(hex) {
