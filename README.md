@@ -68,5 +68,5 @@ $ node bin/index.js unspents <address>
 
 ```sh
 # Watch the index
-$ watch cat data/block_n
+$ watch -n 1 cat data/block_n
 ```
