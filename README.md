@@ -29,6 +29,8 @@ $ npm install
 
 ## Usage
 
+> Perform all commands below from the root directory of the program
+
 ### Crawl
 
 ```sh
@@ -37,4 +39,27 @@ $ node bin/index.js
 
 # From a specific block height
 $ echo 2590 > data/block_n && node bin/index.js
+
+# Re-index
+$ rm data/block_n && node bin/index.js
+```
+
+### Address lookup
+
+```sh
+# Balance
+$ node bin/index.js balance <address>
+
+# Transactions
+$ node bin/index.js transactions <address>
+
+# Unspents
+$ node bin/index.js unspents <address>
+```
+
+### Monitor
+
+```sh
+# Watch the index
+$ watch cat data/block_n
 ```
