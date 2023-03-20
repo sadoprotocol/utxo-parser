@@ -10,6 +10,8 @@ exports.balance = balance;
 exports.transactions = transactions;
 exports.unspents = unspents;
 
+// bcrt1qqfraj903u6pneppeyreytwmppgztk29v4y25f5
+// bcrt1qrx5q9qyw80f5vk4lmrcqrgl4ed283nrp23rv4j
 
 function balance(address) {
   const db = Mongo.getClient();
@@ -69,7 +71,96 @@ function balance(address) {
   });
 }
 
-function transactions(address) {}
+function transactions(address) {
+  const db = Mongo.getClient();
+
+  let promises = [];
+  let pipelines = [];
+
+  pipelines.push({
+    $match: {
+      "addressFrom": address
+    }
+  });
+  pipelines.push({
+    $sort: {
+      "blockN": -1,
+      "n": 1
+    }
+  });
+  pipelines.push({
+    $project: {
+      txid: 1,
+    }
+  });
+
+  promises.push(db.collection("vin").aggregate(pipelines, { allowDiskUse:true }).toArray());
+
+  pipelines = [];
+
+  pipelines.push({
+    $match: {
+      "addressTo": address
+    }
+  });
+  pipelines.push({
+    $sort: {
+      "blockN": -1,
+      "n": 1
+    }
+  });
+  pipelines.push({
+    $project: {
+      txid: 1,
+    }
+  });
+
+  promises.push(db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray());
+
+  return new Promise((resolve, reject) => {
+    Promise.all(promises).then(res => {
+      let outs = [];
+      let doneTxids = [];
+
+      let inCounter = 0;
+      let outCounter = 0;
+
+      for (let i = 0; i < res[0].length; i++) {
+        if (!doneTxids.includes(res[0][i].txid)) {
+          doneTxids.push(res[0][i].txid);
+
+          // get from rpc
+          inCounter++;
+          Rpc.getRawTransaction(res[0][i].txid).then(tx => {
+            outs.push(tx);
+            inCounter--;
+
+            if (inCounter === 0 && outCounter === 0) {
+              resolve(outs);
+            }
+          });
+        }
+      }
+
+      for (let i = 0; i < res[1].length; i++) {
+        if (!doneTxids.includes(res[1][i].txid)) {
+          doneTxids.push(res[1][i].txid);
+
+          // get from rpc
+          outCounter++;
+          Rpc.getRawTransaction(res[1][i].txid).then(tx => {
+            outs.push(tx);
+            outCounter--;
+
+            if (inCounter === 0 && outCounter === 0) {
+              resolve(outs);
+            }
+          });
+        }
+      }
+    }).catch(reject);
+  });
+}
 
 function unspents(address) {}
 
