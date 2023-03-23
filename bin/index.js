@@ -9,7 +9,7 @@ const Lookup = require('../src/lookup');
 
 const args = process.argv.slice(2);
 
-const lookupFunctions = ['balance', 'transactions', 'unspents'];
+const lookupFunctions = ['balance', 'transaction', 'transactions', 'unspents'];
 
 if (!args.length) {
   console.log("Trying to connect to MongoDB..");

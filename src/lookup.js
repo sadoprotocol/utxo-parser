@@ -7,6 +7,7 @@ const decimals = parseInt(process.env.DECIMALS);
 
 
 exports.balance = balance;
+exports.transaction = transaction;
 exports.transactions = transactions;
 exports.unspents = unspents;
 
@@ -67,6 +68,14 @@ function balance(address) {
         value: intToStr(balance, decimals)
       })
       resolve();
+    }).catch(reject);
+  });
+}
+
+function transaction(txid) {
+  return new Promise((resolve, reject) => {
+    Rpc.getRawTransaction(txid).then(tx => {
+      resolve(tx);
     }).catch(reject);
   });
 }
