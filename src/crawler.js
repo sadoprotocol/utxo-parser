@@ -5,15 +5,28 @@ const Data = require('../src/data.js');
 const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
+const interval = parseInt(process.env.CRAWLERINTERVAL);
 const multithreading = parseInt(process.env.CRAWLERMULTITHREAD) === 0 ? false : true;
+
+var working = false;
 
 exports.start = start;
 
-async function start() {
-  await prepare();
+async function start(prep = false) {
+  if (prep) {
+    await prepare();
 
-  // Begin
-  console.log('Network:', process.env.NETWORK);
+    // Begin
+    console.log('Network:', process.env.NETWORK);
+
+    setInterval(() => {
+      if (working === false) {
+        start().catch(err => {
+          console.log("Crawler uncought error", err);
+        });
+      }
+    }, 60000 * interval)
+  }
 
   let currentBlockHeight = await Rpc.getBlockCount();
   console.log('Current network block height is', currentBlockHeight);
@@ -24,10 +37,10 @@ async function start() {
 
   if (multithreading) {
     console.log("Sprinting!");
-    sprint(crawlerBlockHeight, parseInt(currentBlockHeight));
+    sprint(crawlerBlockHeight, currentBlockHeight);
   } else {
     console.log("Crawling..");
-    crawl(crawlerBlockHeight, parseInt(currentBlockHeight));
+    await crawl(crawlerBlockHeight, currentBlockHeight);
   }
 }
 
@@ -100,15 +113,21 @@ async function prepare() {
 function sprint(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
+  maxBn = parseInt(maxBn);
 
   if (bn === maxBn) {
     console.log('Done. Crawler is up to date.');
+    working = false;
     return;
   }
+
+  working = true;
 
   Rpc.getBlockHash(bn).then(bh => {
     Rpc.getBlock(bh).then(b => {
       if (b && Array.isArray(b.tx)) {
+        let counter = 0;
+
         for (let i = 0; i < b.tx.length; i++) {
           let txid = b.tx[i].txid;
           let txHash = b.tx[i].hash;
@@ -125,7 +144,17 @@ function sprint(bn, maxBn) {
             b.tx[i].vin[m].txid = txid;
             b.tx[i].vin[m].txHash = txHash;
 
-            captureVin(b.tx[i].vin[m], m).catch(err => console.log('Error capturing vin.', err));
+            counter++;
+
+            captureVin(b.tx[i].vin[m], m).then(() => {
+              counter--;
+
+              if (counter === 0) {
+                Data.blockHeight(bn + 1).then(() => {
+                  sprint(bn + 1, maxBn);
+                });
+              }
+            }).catch(err => console.log('Error capturing vin.', err));
           }
 
           for (let m = 0; m < b.tx[i].vout.length; m++) {
@@ -134,13 +163,20 @@ function sprint(bn, maxBn) {
             b.tx[i].vout[m].txid = txid;
             b.tx[i].vout[m].txHash = txHash;
 
-            captureVout(b.tx[i].vout[m]).catch(err => console.log('Error capturing vout.', err));
+            counter++;
+
+            captureVout(b.tx[i].vout[m]).then(() => {
+              counter--;
+
+              if (counter === 0) {
+                Data.blockHeight(bn + 1).then(() => {
+                  sprint(bn + 1, maxBn);
+                });
+              }
+            }).catch(err => console.log('Error capturing vout.', err));
           }
         }
 
-        Data.blockHeight(bn + 1).then(() => {
-          sprint(bn + 1, maxBn);
-        });
       }
     }).catch(err => console.log("Get block hash error", err));
   }).catch(err => console.log("Get block hash error", err));
@@ -149,11 +185,15 @@ function sprint(bn, maxBn) {
 async function crawl(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
+  maxBn = parseInt(maxBn);
 
   if (bn === maxBn) {
     console.log('Done. Crawler is up to date.');
+    working = false;
     return;
   }
+
+  working = true;
 
   let bh = await Rpc.getBlockHash(bn);
   let b = await Rpc.getBlock(bh);
@@ -189,7 +229,7 @@ async function crawl(bn, maxBn) {
     }
 
     await Data.blockHeight(bn + 1);
-    crawl(bn + 1, maxBn);
+    await crawl(bn + 1, maxBn);
   }
 }
 

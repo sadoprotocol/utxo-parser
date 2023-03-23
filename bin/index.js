@@ -16,7 +16,7 @@ if (!args.length) {
   MongoDB.connect().then(() => {
     console.log("MongoDB connected.");
 
-    Crawler.start().catch(err => {
+    Crawler.start(true).catch(err => {
       console.log("Crawler uncought error", err);
     });
   }).catch(err => {
