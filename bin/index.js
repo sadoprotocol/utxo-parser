@@ -25,7 +25,7 @@ if (!args.length) {
 } else if (lookupFunctions.includes(args[0]) && args[1]) {
   MongoDB.connect().then(() => {
     Lookup[args[0]](args[1]).then(res => {
-      console.log(res);
+      console.log(JSON.stringify(res));
       process.exit(0);
     }).catch(err => {
       console.log("Lookup uncought error", err);
