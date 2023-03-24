@@ -56,7 +56,8 @@ async function prepare() {
         "addressFrom": 1
       },
       {
-        "prev_txid": 1
+        "prev_txid": 1,
+        "vout": 1
       },
       {
         "addressFrom": 1,

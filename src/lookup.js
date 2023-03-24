@@ -174,29 +174,7 @@ function transactions(address) {
 function unspents(address) {
   const db = Mongo.getClient();
 
-  let promises = [];
   let pipelines = [];
-
-  pipelines.push({
-    $match: {
-      "addressFrom": address
-    }
-  });
-  pipelines.push({
-    $sort: {
-      "blockN": -1,
-      "n": 1
-    }
-  });
-  pipelines.push({
-    $project: {
-      txid: 1,
-    }
-  });
-
-  promises.push(db.collection("vin").aggregate(pipelines, { allowDiskUse:true }).toArray());
-
-  pipelines = [];
 
   pipelines.push({
     $match: {
@@ -215,26 +193,29 @@ function unspents(address) {
     }
   });
 
-  promises.push(db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray());
-
   return new Promise((resolve, reject) => {
-    Promise.all(promises).then(res => {
+    db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray().then(res => {
+      let counter = 0;
       let outs = [];
-      let doneTxids = [];
 
-      for (let i = 0; i < res[0].length; i++) {
-        if (!doneTxids.includes(res[0][i].txid)) {
-          doneTxids.push(res[0][i].txid);
-        }
+      for (let i = 0; i < res.length; i++) {
+        counter++;
+
+        db.collection("vin").findOne({
+          prev_txid: res[i].txid,
+          vout: res[i].n
+        }).then(got => {
+          if (!got) {
+            outs.push(res[i]);
+          }
+
+          counter--;
+
+          if (counter === 0) {
+            resolve(outs);
+          }
+        }).catch(reject);
       }
-
-      for (let i = 0; i < res[1].length; i++) {
-        if (!doneTxids.includes(res[1][i].txid)) {
-          outs.push(res[1][i]);
-        }
-      }
-
-      resolve(outs);
     }).catch(reject);
   });
 }
