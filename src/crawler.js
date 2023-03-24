@@ -56,6 +56,9 @@ async function prepare() {
         "addressFrom": 1
       },
       {
+        "prev_txid": 1
+      },
+      {
         "addressFrom": 1,
         "txHash": 1,
         "n": 1
