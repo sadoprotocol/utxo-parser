@@ -26,7 +26,9 @@ if (!args.length) {
   MongoDB.connect().then(() => {
     Lookup[args[0]](args[1]).then(res => {
       console.log(JSON.stringify(res));
-      process.exit(0);
+      setTimeout(() => {
+        process.exit(0);
+      }, 500);
     }).catch(err => {
       console.log("Lookup uncought error", err);
     });

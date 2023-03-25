@@ -67,7 +67,6 @@ function balance(address) {
         int: balance,
         value: intToStr(balance, decimals)
       })
-      resolve();
     }).catch(reject);
   });
 }
@@ -133,6 +132,7 @@ function transactions(address) {
 
       let inCounter = 0;
       let outCounter = 0;
+      let goneOut = res[1].length === 0 ? true : false;
 
       for (let i = 0; i < res[0].length; i++) {
         if (!doneTxids.includes(res[0][i].txid)) {
@@ -144,7 +144,7 @@ function transactions(address) {
             outs.push(tx);
             inCounter--;
 
-            if (inCounter === 0 && outCounter === 0) {
+            if (inCounter === 0 && outCounter === 0 && goneOut) {
               resolve(outs);
             }
           });
@@ -166,6 +166,12 @@ function transactions(address) {
             }
           });
         }
+
+        goneOut = true;
+      }
+
+      if (res[0].length === 0 && res[1].length === 0) {
+        resolve(outs);
       }
     }).catch(reject);
   });
@@ -215,6 +221,10 @@ function unspents(address) {
             resolve(outs);
           }
         }).catch(reject);
+      }
+
+      if (res.length === 0) {
+        resolve(outs);
       }
     }).catch(reject);
   });
