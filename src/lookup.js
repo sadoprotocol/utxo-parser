@@ -145,7 +145,7 @@ function transactions(address) {
             inCounter--;
 
             if (inCounter === 0 && outCounter === 0 && goneOut) {
-              resolve(outs);
+              resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
             }
           });
         }
@@ -162,7 +162,7 @@ function transactions(address) {
             outCounter--;
 
             if (inCounter === 0 && outCounter === 0) {
-              resolve(outs);
+              resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
             }
           });
         }
@@ -218,7 +218,7 @@ function unspents(address) {
           counter--;
 
           if (counter === 0) {
-            resolve(outs);
+            resolve(outs.sort((a,b) => a.blockN - b.blockN));
           }
         }).catch(reject);
       }
