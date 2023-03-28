@@ -218,7 +218,7 @@ function unspents(address) {
           counter--;
 
           if (counter === 0) {
-            resolve(outs.sort((a,b) => a.blockN - b.blockN));
+            resolve(outs.sort((a,b) => b.blockN - a.blockN));
           }
         }).catch(reject);
       }
