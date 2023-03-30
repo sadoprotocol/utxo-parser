@@ -31,6 +31,7 @@ if (!args.length) {
       }, 500);
     }).catch(err => {
       console.log("Lookup uncought error", err);
+      process.exit(0);
     });
   }).catch(err => {
     console.log("Problem connecting to MongoDB", err);
