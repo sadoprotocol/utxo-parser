@@ -4,45 +4,213 @@ const Rpc = require('../src/rpc.js');
 const Data = require('../src/data.js');
 const Mongo = require('../src/mongodb');
 
-const decimals = parseInt(process.env.DECIMALS);
-const interval = parseInt(process.env.CRAWLERINTERVAL);
-const multithreading = parseInt(process.env.CRAWLERMULTITHREAD) === 0 ? false : true;
+const reorgMin = parseFloat(process.env.REORGMIN || 0.5);
+const decimals = parseInt(process.env.DECIMALS || 8);
+const interval = parseInt(process.env.CRAWLERINTERVAL || 10);
+const multithreading = parseInt(process.env.CRAWLERMULTITHREAD || 0) === 0 ? false : true;
 
 var working = false;
 
 exports.start = start;
 
-async function start(prep = false) {
-  if (prep) {
-    await prepare();
 
-    // Begin
-    console.log('Network:', process.env.NETWORK);
 
-    setInterval(() => {
-      if (working === false) {
-        start().catch(err => {
-          console.log("Crawler uncought error", err);
-        });
-      }
-    }, 60000 * interval)
+
+// === vins / vouts
+
+function sats(a, decimal) {
+  a = a + "";
+
+  let b = "";
+  let counter = decimal;
+  let begin = false;
+  let length = decimal + a.length;
+
+  for (let i = 0; i < length; i++) {
+    if (a[i] === '.') {
+      begin = true;
+      continue;
+    }
+
+    if (begin === false && a[i] === "0") {
+      continue;
+    }
+
+    let num = a[i];
+
+    if (typeof a[i] === 'undefined') {
+      num = "0";
+    }
+
+    if (begin) {
+      counter--;
+    }
+
+    b += num;
+
+    if (counter === 0) {
+      break;
+    }
   }
 
-  let currentBlockHeight = await Rpc.getBlockCount();
-  console.log('Current network block height is', currentBlockHeight);
+  return parseInt(b);
+}
 
-  // Get saved block height
-  let crawlerBlockHeight = await Data.blockHeight();
-  console.log('Current crawler block height is', crawlerBlockHeight);
+async function captureVin(vin, n) {
+  if (typeof vin.vout === 'undefined') {
+    return false;
+  }
 
-  if (multithreading) {
-    console.log("Sprinting!");
-    sprint(crawlerBlockHeight, currentBlockHeight);
-  } else {
-    console.log("Crawling..");
-    await crawl(crawlerBlockHeight, currentBlockHeight);
+  let tx = await Rpc.getRawTransaction(vin.prev_txid);
+
+  if (tx) {
+    let index = vin.vout;
+    let vout = {};
+
+    if (tx.vout[index].n !== index) {
+      let foundIndex = tx.vout.findIndex(item => {
+        item.n === index;
+      });
+
+      vout = tx.vout[foundIndex]
+    } else {
+      vout = tx.vout[index];
+    }
+
+    let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
+
+    if (derived) {
+      const db = Mongo.getClient();
+
+      vout.sats = sats(vout.value, decimals)
+      vout.addressFrom = derived[0];
+
+      vin = { ...vin, ...vout };
+
+      vin.n = n;
+
+      await db.collection("vin").updateOne({
+        "addressFrom": vin.addressFrom,
+        "txHash": vin.txHash,
+        "n": n
+      }, {
+        $set: vin
+      }, {
+        upsert: true
+      });
+    }
   }
 }
+
+async function captureVout(vout) {
+  let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
+
+  if (derived) {
+    const db = Mongo.getClient();
+
+    vout.sats = sats(vout.value, decimals)
+    vout.addressTo = derived[0];
+
+    await db.collection("vout").updateOne({
+      "addressTo": vout.addressTo,
+      "txHash": vout.txHash,
+      "n": vout.n
+    }, {
+      $set: vout
+    }, {
+      upsert: true
+    });
+  }
+}
+
+// === reorg
+
+function assertBlockN(blockN) {
+  if (isNaN(blockN)) {
+    throw new Error('blockN must be a number');
+  }
+
+  if (blockN < 0) {
+    throw new Error('blockN must be more than 0');
+  }
+}
+
+// return false if no reorg
+// return blockN if found need reorg
+async function detectReorg(blockN) {
+  assertBlockN(blockN);
+
+  let blockHash = await Rpc.getBlockHash(blockN);
+
+  if (!blockHash) {
+    throw new Error("Block hash " + blockN + " not found from rpc.");
+  }
+
+  let latest = await db.collection("vout").findOne({
+    'blockN': blockN
+  });
+
+  if (
+    !latest 
+    || latest === null 
+    || latest.blockHash === undefined
+  ) {
+    throw new Error('No input found at block ', blockN);
+  }
+
+  if (blockHash === latest.blockHash) {
+    return false;
+  }
+
+  return blockN;
+}
+
+// return false if no reorg
+// return blockN if found need reorg
+async function scanReorg(blockN) {
+  assertBlockN(blockN);
+
+  // go backwards 50 blocks
+  let minBlockN = parseInt(blockN * reorgMin);
+  let detected = await detectReorg(blockN);
+
+  while(detected === false) {
+    if (blockN < minBlockN) {
+      break;
+    }
+
+    if (blockN < 0) {
+      break;
+    }
+
+    detected = await detectReorg(blockN);
+    blockN -= 50;
+  }
+
+  return detected;
+}
+
+async function removeBlockFromN(blockN) {
+  await db.collection("vin").deleteMany({ 'blockN': { $gte: blockN } });
+
+  await db.collection("vout").deleteMany({ 'blockN': { $gte: blockN } });
+}
+
+async function handleReorg(blockN) {
+  assertBlockN(blockN);
+
+  console.log('Checking for reorg..');
+
+  let reorgBlockN = await scanReorg(blockN);
+
+  if (reorgBlockN && !isNaN(reorgBlockN)) {
+    console.log('Has reorg from block', blockN);
+    await removeBlockFromN(blockN);
+    await Data.blockHeight(blockN - 1);
+  }
+}
+
+// === start
 
 async function prepare() {
   const db = Mongo.getClient();
@@ -114,78 +282,6 @@ async function prepare() {
   }
 }
 
-function sprint(bn, maxBn) {
-  // console.log('Crawling block ', bn);
-  bn = parseInt(bn);
-  maxBn = parseInt(maxBn);
-
-  if (bn === maxBn) {
-    console.log('Done. Crawler is up to date.');
-    working = false;
-    return;
-  }
-
-  working = true;
-
-  Rpc.getBlockHash(bn).then(bh => {
-    Rpc.getBlock(bh).then(b => {
-      if (b && Array.isArray(b.tx)) {
-        let counter = 0;
-
-        for (let i = 0; i < b.tx.length; i++) {
-          let txid = b.tx[i].txid;
-          let txHash = b.tx[i].hash;
-
-          for (let m = 0; m < b.tx[i].vin.length; m++) {
-            if (!b.tx[i].vin[m].txid) {
-              continue;
-            }
-
-            b.tx[i].vin[m].prev_txid = b.tx[i].vin[m].txid;
-
-            b.tx[i].vin[m].blockHash = bh;
-            b.tx[i].vin[m].blockN = bn;
-            b.tx[i].vin[m].txid = txid;
-            b.tx[i].vin[m].txHash = txHash;
-
-            counter++;
-
-            captureVin(b.tx[i].vin[m], m).then(() => {
-              counter--;
-
-              if (counter === 0) {
-                Data.blockHeight(bn + 1).then(() => {
-                  sprint(bn + 1, maxBn);
-                });
-              }
-            }).catch(err => console.log('Error capturing vin.', err));
-          }
-
-          for (let m = 0; m < b.tx[i].vout.length; m++) {
-            b.tx[i].vout[m].blockHash = bh;
-            b.tx[i].vout[m].blockN = bn;
-            b.tx[i].vout[m].txid = txid;
-            b.tx[i].vout[m].txHash = txHash;
-
-            counter++;
-
-            captureVout(b.tx[i].vout[m]).then(() => {
-              counter--;
-
-              if (counter === 0) {
-                Data.blockHeight(bn + 1).then(() => {
-                  sprint(bn + 1, maxBn);
-                });
-              }
-            }).catch(err => console.log('Error capturing vout.', err));
-          }
-        }
-
-      }
-    }).catch(err => console.log("Get block hash error", err));
-  }).catch(err => console.log("Get block hash error", err));
-}
-
 async function crawl(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
@@ -194,6 +290,7 @@ async function crawl(bn, maxBn) {
   if (bn === maxBn) {
     console.log('Done. Crawler is up to date.');
     working = false;
+    await handleReorg(bn);
     return;
   }
 
@@ -219,7 +316,15 @@ async function crawl(bn, maxBn) {
         b.tx[i].vin[m].txid = txid;
         b.tx[i].vin[m].txHash = txHash;
 
-        await captureVin(b.tx[i].vin[m], m);
+        if (multithreading) {
+          captureVin(b.tx[i].vin[m], m).catch(err => {
+            console.log('Capture vin error!', err);
+            console.log('At block ', bn);
+            process.exit(1);
+          });
+        } else {
+          await captureVin(b.tx[i].vin[m], m);
+        }
       }
 
       for (let m = 0; m < b.tx[i].vout.length; m++) {
@@ -228,7 +333,15 @@ async function crawl(bn, maxBn) {
         b.tx[i].vout[m].txid = txid;
         b.tx[i].vout[m].txHash = txHash;
 
-        await captureVout(b.tx[i].vout[m]);
+        if (multithreading) {
+          captureVout(b.tx[i].vout[m]).catch(err => {
+            console.log('Capture vout error!', err);
+            console.log('At block ', bn);
+            process.exit(1);
+          });
+        } else {
+          await captureVout(b.tx[i].vout[m]);
+        }
       }
     }
 
@@ -237,110 +350,29 @@ async function crawl(bn, maxBn) {
   }
 }
 
-async function captureVin(vin, n) {
-  if (typeof vin.vout === 'undefined') {
-    return false;
+async function start(prep = false) {
+  if (prep) {
+    await prepare();
+
+    // Begin
+    console.log('Network:', process.env.NETWORK);
+
+    setInterval(() => {
+      if (working === false) {
+        start().catch(err => {
+          console.log("Crawler uncought error", err);
+        });
+      }
+    }, 60000 * interval)
   }
 
-  let tx = await Rpc.getRawTransaction(vin.prev_txid);
+  let currentBlockHeight = await Rpc.getBlockCount();
+  console.log('Current network block height is', currentBlockHeight);
 
-  if (tx) {
-    let index = vin.vout;
-    let vout = {};
+  // Get saved block height
+  let crawlerBlockHeight = await Data.blockHeight();
+  console.log('Current crawler block height is', crawlerBlockHeight);
 
-    if (tx.vout[index].n !== index) {
-      let foundIndex = tx.vout.findIndex(item => {
-        item.n === index;
-      });
-
-      vout = tx.vout[foundIndex]
-    } else {
-      vout = tx.vout[index];
-    }
-
-    let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
-
-    if (derived) {
-      const db = Mongo.getClient();
-
-      vout.sats = sats(vout.value, decimals)
-      vout.addressFrom = derived[0];
-
-      vin = { ...vin, ...vout };
-
-      vin.n = n;
-
-      await db.collection("vin").updateOne({
-        "addressFrom": vin.addressFrom,
-        "txHash": vin.txHash,
-        "n": n
-      }, {
-        $set: vin
-      }, {
-        upsert: true
-      });
-    }
-  }
+  console.log("Crawling..");
+  await crawl(crawlerBlockHeight, currentBlockHeight);
 }
-
-// if (vout.txid === '2047b293268aa0f5fccfe579cdb40aca7c3f0468a1b044469529a5d99ff44ba8') {}
-
-async function captureVout(vout) {
-  let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
-
-  if (derived) {
-    const db = Mongo.getClient();
-
-    vout.sats = sats(vout.value, decimals)
-    vout.addressTo = derived[0];
-
-    await db.collection("vout").updateOne({
-      "addressTo": vout.addressTo,
-      "txHash": vout.txHash,
-      "n": vout.n
-    }, {
-      $set: vout
-    }, {
-      upsert: true
-    });
-  }
-}
-
-function sats(a, decimal) {
-  a = a + "";
-
-  let b = "";
-  let counter = decimal;
-  let begin = false;
-  let length = decimal + a.length;
-
-  for (let i = 0; i < length; i++) {
-    if (a[i] === '.') {
-      begin = true;
-      continue;
-    }
-
-    if (begin === false && a[i] === "0") {
-      continue;
-    }
-
-    let num = a[i];
-
-    if (typeof a[i] === 'undefined') {
-      num = "0";
-    }
-
-    if (begin) {
-      counter--;
-    }
-
-    b += num;
-
-    if (counter === 0) {
-      break;
-    }
-  }
-
-  return parseInt(b);
-}
-
