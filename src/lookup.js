@@ -1,6 +1,7 @@
 "use strict"
 
-const Rpc = require('../src/rpc.js');
+const Rpc = require('../src/rpc');
+const Ord = require('../src/ord');
 const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
@@ -199,7 +200,7 @@ function unspents(address) {
     }
   });
 
-  return new Promise((resolve, reject) => {
+  let unspentsPromise = new Promise((resolve, reject) => {
     db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray().then(res => {
       let counter = 0;
       let outs = [];
@@ -225,6 +226,68 @@ function unspents(address) {
 
       if (res.length === 0) {
         resolve(outs);
+      }
+    }).catch(reject);
+  });
+
+  return new Promise((resolve, reject) => {
+    unspentsPromise.then(unspents => {
+      let counter = 0;
+
+      for (let i = 0; i < unspents.length; i++) {
+        counter++;
+
+        let outpoint = unspents[i].txid + ":" + unspents[i].n;
+
+        Ord.list(outpoint).then(sats => {
+          if (Array.isArray(sats)) {
+            unspents[i].ordinals = sats;
+
+            let sats_counter = 0;
+
+            for (let s = 0; s < sats.length; s++) {
+              sats_counter++;
+
+              Ord.gioo(outpoint).then(inscriptions => {
+                if (Array.isArray(inscriptions)) {
+                  unspents[i].ordinals[s].inscriptions = inscriptions;
+                }
+
+                sats_counter--;
+
+                if (sats_counter === 0) {
+                  counter--;
+
+                  if (counter === 0) {
+                    resolve(unspents);
+                  }
+                }
+              }).catch(err => {
+                sats_counter--;
+
+                if (sats_counter === 0) {
+                  counter--;
+
+                  if (counter === 0) {
+                    resolve(unspents);
+                  }
+                }
+              });
+            }
+          } else {
+            counter--;
+
+            if (counter === 0) {
+              resolve(unspents);
+            }
+          }
+        }).catch(err => {
+          counter--;
+
+          if (counter === 0) {
+            resolve(unspents);
+          }
+        });
       }
     }).catch(reject);
   });
