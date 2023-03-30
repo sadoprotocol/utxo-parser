@@ -178,7 +178,7 @@ function transactions(address) {
   });
 }
 
-function unspents(address) {
+function unspents_helper(address) {
   const db = Mongo.getClient();
 
   let pipelines = [];
@@ -200,7 +200,7 @@ function unspents(address) {
     }
   });
 
-  let unspentsPromise = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray().then(res => {
       let counter = 0;
       let outs = [];
@@ -229,52 +229,29 @@ function unspents(address) {
       }
     }).catch(reject);
   });
+}
 
-  return new Promise((resolve, reject) => {
-    unspentsPromise.then(unspents => {
-      let counter = 0;
+async function unspents(address) {
+  let unspents = await unspents_helper(address);
 
-      for (let i = 0; i < unspents.length; i++) {
-        counter++;
+  for (let i = 0; i < unspents.length; i++) {
+    let outpoint = unspents[i].txid + ":" + unspents[i].n;
+    let sats = await Ord.list(outpoint);
 
-        let outpoint = unspents[i].txid + ":" + unspents[i].n;
+    if (Array.isArray(sats)) {
+      unspents[i].ordinals = sats;
 
-        Ord.list(outpoint).then(sats => {
-          if (Array.isArray(sats)) {
-            unspents[i].ordinals = sats;
+      for (let s = 0; s < sats.length; s++) {
+        let inscriptions = await Ord.gioo(outpoint);
 
-            let sats_counter = 0;
-
-            for (let s = 0; s < sats.length; s++) {
-              sats_counter++;
-
-              Ord.gioo(outpoint).then(inscriptions => {
-                if (Array.isArray(inscriptions)) {
-                  unspents[i].ordinals[s].inscriptions = inscriptions;
-                }
-
-                sats_counter--;
-
-                if (sats_counter === 0) {
-                  counter--;
-
-                  if (counter === 0) {
-                    resolve(unspents);
-                  }
-                }
-              }).catch(reject);
-            }
-          } else {
-            counter--;
-
-            if (counter === 0) {
-              resolve(unspents);
-            }
-          }
-        }).catch(reject);
+        if (Array.isArray(inscriptions)) {
+          unspents[i].ordinals[s].inscriptions = inscriptions;
+        }
       }
-    }).catch(reject);
-  });
+    }
+  }
+
+  return unspents;
 }
 
 // ==
