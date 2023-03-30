@@ -244,7 +244,12 @@ async function unspents(address) {
       for (let s = 0; s < sats.length; s++) {
         let res = await Ord.gioo(outpoint);
 
-        if (res && res.inscriptions && Array.isArray(res.inscriptions)) {
+        if (
+          res 
+          && res.inscriptions 
+          && Array.isArray(res.inscriptions)
+          && res.inscriptions.length
+        ) {
           unspents[i].ordinals[s].inscriptions = res.inscriptions;
         }
       }
