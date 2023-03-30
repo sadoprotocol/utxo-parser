@@ -157,7 +157,7 @@ async function detectReorg(blockN) {
     || latest === null 
     || latest.blockHash === undefined
   ) {
-    throw new Error('No input found at block ', blockN);
+    throw new Error('No input found at block ' + blockN);
   }
 
   if (blockHash === latest.blockHash) {
@@ -291,7 +291,7 @@ async function crawl(bn, maxBn) {
   bn = parseInt(bn);
   maxBn = parseInt(maxBn);
 
-  if (bn === maxBn) {
+  if (bn > maxBn) {
     console.log('Done. Crawler is up to date.');
     working = false;
     await handleReorg(bn);
