@@ -262,17 +262,7 @@ function unspents(address) {
                     resolve(unspents);
                   }
                 }
-              }).catch(err => {
-                sats_counter--;
-
-                if (sats_counter === 0) {
-                  counter--;
-
-                  if (counter === 0) {
-                    resolve(unspents);
-                  }
-                }
-              });
+              }).catch(reject);
             }
           } else {
             counter--;
@@ -281,13 +271,7 @@ function unspents(address) {
               resolve(unspents);
             }
           }
-        }).catch(err => {
-          counter--;
-
-          if (counter === 0) {
-            resolve(unspents);
-          }
-        });
+        }).catch(reject);
       }
     }).catch(reject);
   });
