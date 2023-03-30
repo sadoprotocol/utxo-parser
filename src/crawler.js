@@ -146,6 +146,8 @@ async function detectReorg(blockN) {
     throw new Error("Block hash " + blockN + " not found from rpc.");
   }
 
+  const db = Mongo.getClient();
+
   let latest = await db.collection("vout").findOne({
     'blockN': blockN
   });
@@ -191,6 +193,8 @@ async function scanReorg(blockN) {
 }
 
 async function removeBlockFromN(blockN) {
+  const db = Mongo.getClient();
+
   await db.collection("vin").deleteMany({ 'blockN': { $gte: blockN } });
 
   await db.collection("vout").deleteMany({ 'blockN': { $gte: blockN } });
