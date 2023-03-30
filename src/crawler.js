@@ -294,7 +294,7 @@ async function crawl(bn, maxBn) {
   if (bn > maxBn) {
     console.log('Done. Crawler is up to date.');
     working = false;
-    await handleReorg(bn);
+    await handleReorg(maxBn);
     return;
   }
 
