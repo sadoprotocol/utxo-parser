@@ -211,6 +211,8 @@ async function handleReorg(blockN) {
     console.log('Has reorg from block', blockN);
     await removeBlockFromN(blockN);
     await Data.blockHeight(blockN - 1);
+  } else {
+    console.log("No reorg..");
   }
 }
 
