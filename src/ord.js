@@ -52,6 +52,7 @@ function rpc(arg = []) {
 exports.list = list;
 exports.gioo = gioo;
 exports.gie = gie;
+exports.traits = traits;
 
 
 
@@ -93,6 +94,15 @@ async function gioo(outpoint) {
 async function gie(inscriptionId) {
   try {
     let res = await rpc([ 'gie', inscriptionId ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function traits(sat) {
+  try {
+    let res = await rpc([ 'traits', sat ]);
     return parse(res);
   } catch (err) {
     return false;

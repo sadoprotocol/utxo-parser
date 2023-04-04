@@ -242,6 +242,12 @@ async function unspents(address) {
       unspents[i].ordinals = sats;
 
       for (let s = 0; s < sats.length; s++) {
+        let traits = await Ord.traits(sats[s].start);
+
+        if (traits && traits.name) {
+          unspents[i].ordinals[s] = { ...traits, ...unspents[i].ordinals[s] };
+        }
+
         let res = await Ord.gioo(outpoint);
 
         if (
