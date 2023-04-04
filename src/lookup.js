@@ -114,6 +114,14 @@ async function transaction(txid) {
     for (let i = 0; i < tx.vout.length; i++) {
       let outpoint = txid + ":" + tx.vout[i].n;
       tx.vout[i].ordinals = await getOrdinals(outpoint);
+
+      if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
+        if (tx.vout[i].scriptPubKey.asm.includes("OP_RETURN")) {
+          let asm = tx.vout[i].scriptPubKey.asm.replace("OP_RETURN", "").trim();
+          let asmBuffer = Buffer.from(asm, "hex");
+          tx.vout[i].scriptPubKey.utf8 = asmBuffer.toString();
+        }
+      }
     }
   }
 
