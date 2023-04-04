@@ -229,6 +229,8 @@ async function transactions(address) {
       transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
     }
   }
+
+  return transactions;
 }
 
 function unspents_helper(address) {
