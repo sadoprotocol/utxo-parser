@@ -120,7 +120,7 @@ async function transaction(txid) {
   return tx;
 }
 
-function transactions(address) {
+function transactions_helper(address) {
   const db = Mongo.getClient();
 
   let promises = [];
@@ -216,6 +216,19 @@ function transactions(address) {
       }
     }).catch(reject);
   });
+}
+
+async function transactions(address) {
+  let transactions = await transactions_helper(address);
+
+  for (let t = 0; t < transactions.length; t++) {
+    let txid = transactions[t].txid;
+
+    for (let i = 0; i < transactions[t].vout.length; i++) {
+      let outpoint = txid + ":" + transactions[t].vout[i].n;
+      transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
+    }
+  }
 }
 
 function unspents_helper(address) {
