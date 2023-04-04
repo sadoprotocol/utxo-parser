@@ -52,7 +52,7 @@ async function getOrdinals(outpoint) {
 
 function getNullDataUtf8(asm) {
   if (asm.includes("OP_RETURN")) {
-    let asm = asm.replace("OP_RETURN", "").trim();
+    asm = asm.replace("OP_RETURN", "").trim();
     let asmBuffer = Buffer.from(asm, "hex");
 
     return asmBuffer.toString();
