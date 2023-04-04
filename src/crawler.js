@@ -8,6 +8,7 @@ const reorgMin = parseFloat(process.env.REORGMIN || 0.5);
 const decimals = parseInt(process.env.DECIMALS || 8);
 const interval = parseInt(process.env.CRAWLERINTERVAL || 10);
 const multithreading = parseInt(process.env.CRAWLERMULTITHREAD || 0) === 0 ? false : true;
+const crawlerMaxBlock = parseInt(process.env.CRAWLERMAXBLOCK || 0) === 0 ? false : parseInt(process.env.CRAWLERMAXBLOCK);
 
 var working = false;
 
@@ -297,6 +298,11 @@ async function crawl(bn, maxBn) {
   // console.log('Crawling block ', bn);
   bn = parseInt(bn);
   maxBn = parseInt(maxBn);
+
+  if (crawlerMaxBlock !== false && bn > crawlerMaxBlock) {
+    console.log("Crawler max block reached. Terminating..");
+    process.exit(0);
+  }
 
   if (bn > maxBn) {
     console.log('Done. Crawler is up to date.');
