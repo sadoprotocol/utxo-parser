@@ -260,8 +260,10 @@ async function unspents(address) {
 
           for (let u = 0; u < res.inscriptions.length; u++) {
             let entry = await Ord.gie(res.inscriptions[u]);
-            entry.id = res.inscriptions[u];
-            unspents[i].ordinals[s].inscriptions.push(entry);
+
+            if (entry && entry.media_type) {
+              unspents[i].ordinals[s].inscriptions.push({ ...{ id: res.inscriptions[u] }, ...entry });
+            }
           }
         }
       }
