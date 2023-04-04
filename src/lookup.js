@@ -50,6 +50,17 @@ async function getOrdinals(outpoint) {
   return result;
 }
 
+function getNullDataUtf8(asm) {
+  if (asm.includes("OP_RETURN")) {
+    let asm = asm.replace("OP_RETURN", "").trim();
+    let asmBuffer = Buffer.from(asm, "hex");
+
+    return asmBuffer.toString();
+  }
+
+  return false;
+}
+
 function balance(address) {
   const db = Mongo.getClient();
 
@@ -116,11 +127,7 @@ async function transaction(txid) {
       tx.vout[i].ordinals = await getOrdinals(outpoint);
 
       if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
-        if (tx.vout[i].scriptPubKey.asm.includes("OP_RETURN")) {
-          let asm = tx.vout[i].scriptPubKey.asm.replace("OP_RETURN", "").trim();
-          let asmBuffer = Buffer.from(asm, "hex");
-          tx.vout[i].scriptPubKey.utf8 = asmBuffer.toString();
-        }
+        tx.vout[i].scriptPubKey.utf8 = getNullDataUtf8(tx.vout[i].scriptPubKey.asm);
       }
     }
   }
