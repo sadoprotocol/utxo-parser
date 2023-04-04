@@ -107,12 +107,17 @@ function balance(address) {
   });
 }
 
-function transaction(txid) {
-  return new Promise((resolve, reject) => {
-    Rpc.getRawTransaction(txid).then(tx => {
-      resolve(tx);
-    }).catch(reject);
-  });
+async function transaction(txid) {
+  let tx = await Rpc.getRawTransaction(txid);
+
+  if (tx) {
+    for (let i = 0; i < tx.vout.length; i++) {
+      let outpoint = txid + ":" + tx.vout[i].n;
+      tx.vout[i].ordinals = await getOrdinals(outpoint);
+    }
+  }
+
+  return tx;
 }
 
 function transactions(address) {
