@@ -51,6 +51,7 @@ function rpc(arg = []) {
 // exports.getBlockHash = getBlockHash;
 exports.list = list;
 exports.gioo = gioo;
+exports.gie = gie;
 
 
 
@@ -83,6 +84,15 @@ async function list(outpoint) {
 async function gioo(outpoint) {
   try {
     let res = await rpc([ 'gioo', outpoint ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function gie(inscriptionId) {
+  try {
+    let res = await rpc([ 'gie', inscriptionId ]);
     return parse(res);
   } catch (err) {
     return false;

@@ -250,7 +250,13 @@ async function unspents(address) {
           && Array.isArray(res.inscriptions)
           && res.inscriptions.length
         ) {
-          unspents[i].ordinals[s].inscriptions = res.inscriptions;
+          unspents[i].ordinals[s].inscriptions = [];
+
+          for (let u = 0; u < res.inscriptions.length; u++) {
+            let entry = await Ord.gie(res.inscriptions[u]);
+            entry.id = res.inscriptions[u];
+            unspents[i].ordinals[s].inscriptions.push(entry);
+          }
         }
       }
     }
