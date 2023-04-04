@@ -242,6 +242,10 @@ async function transactions(address) {
     for (let i = 0; i < transactions[t].vout.length; i++) {
       let outpoint = txid + ":" + transactions[t].vout[i].n;
       transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
+
+      if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
+        transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
+      }
     }
   }
 
@@ -307,6 +311,10 @@ async function unspents(address) {
   for (let i = 0; i < unspents.length; i++) {
     let outpoint = unspents[i].txid + ":" + unspents[i].n;
     unspents[i].ordinals = await getOrdinals(outpoint);
+
+    if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
+      unspents[i].scriptPubKey.utf8 = getNullDataUtf8(unspents[i].scriptPubKey.asm);
+    }
   }
 
   return unspents;
