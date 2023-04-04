@@ -12,8 +12,43 @@ exports.transaction = transaction;
 exports.transactions = transactions;
 exports.unspents = unspents;
 
-// bcrt1qqfraj903u6pneppeyreytwmppgztk29v4y25f5
-// bcrt1qrx5q9qyw80f5vk4lmrcqrgl4ed283nrp23rv4j
+async function getOrdinals(outpoint) {
+  let result = [];
+  let sats = await Ord.list(outpoint);
+
+  if (Array.isArray(sats)) {
+    result = sats;
+
+    for (let s = 0; s < sats.length; s++) {
+      let traits = await Ord.traits(sats[s].start);
+
+      if (traits && traits.name) {
+        result[s] = { ...traits, ...result[s] };
+      }
+
+      let res = await Ord.gioo(outpoint);
+
+      if (
+        res 
+        && res.inscriptions 
+        && Array.isArray(res.inscriptions)
+        && res.inscriptions.length
+      ) {
+        result[s].inscriptions = [];
+
+        for (let u = 0; u < res.inscriptions.length; u++) {
+          let entry = await Ord.gie(res.inscriptions[u]);
+
+          if (entry && entry.media_type) {
+            result[s].inscriptions.push({ ...{ id: res.inscriptions[u] }, ...entry });
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
 
 function balance(address) {
   const db = Mongo.getClient();
@@ -236,38 +271,7 @@ async function unspents(address) {
 
   for (let i = 0; i < unspents.length; i++) {
     let outpoint = unspents[i].txid + ":" + unspents[i].n;
-    let sats = await Ord.list(outpoint);
-
-    if (Array.isArray(sats)) {
-      unspents[i].ordinals = sats;
-
-      for (let s = 0; s < sats.length; s++) {
-        let traits = await Ord.traits(sats[s].start);
-
-        if (traits && traits.name) {
-          unspents[i].ordinals[s] = { ...traits, ...unspents[i].ordinals[s] };
-        }
-
-        let res = await Ord.gioo(outpoint);
-
-        if (
-          res 
-          && res.inscriptions 
-          && Array.isArray(res.inscriptions)
-          && res.inscriptions.length
-        ) {
-          unspents[i].ordinals[s].inscriptions = [];
-
-          for (let u = 0; u < res.inscriptions.length; u++) {
-            let entry = await Ord.gie(res.inscriptions[u]);
-
-            if (entry && entry.media_type) {
-              unspents[i].ordinals[s].inscriptions.push({ ...{ id: res.inscriptions[u] }, ...entry });
-            }
-          }
-        }
-      }
-    }
+    unspents[i].ordinals = await getOrdinals(outpoint);
   }
 
   return unspents;
