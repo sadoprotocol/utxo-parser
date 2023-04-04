@@ -148,19 +148,24 @@ async function detectReorg(blockN) {
 
   const db = Mongo.getClient();
 
-  let latest = await db.collection("vout").findOne({
+  let vouts = await db.collection("vout").find({
     'blockN': blockN
-  });
+  }).toArray();
 
-  if (
-    !latest 
-    || latest === null 
-    || latest.blockHash === undefined
-  ) {
-    throw new Error('No input found at block ' + blockN);
+  if (!Array.isArray(vouts)) {
+    throw new Error('No vouts found at block ' + blockN);
   }
 
-  if (blockHash === latest.blockHash) {
+  let reorg = false;
+
+  for (let i = 0; i < vouts.length; i++) {
+    if (vouts[i].blockHash !== blockHash) {
+      reorg = true;
+      break;
+    }
+  }
+
+  if (reorg === false) {
     return false;
   }
 
