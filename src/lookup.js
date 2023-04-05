@@ -41,7 +41,8 @@ async function getOrdinals(outpoint) {
 
           if (entry && entry.media_type) {
             // get location and owner
-            let satpoint = await Ord.find(entry.sat);
+            let satFound = await Ord.find(entry.sat);
+            let satpoint = satFound.satpoint;
             let sArr = satpoint.split(':');
             let txid = sArr[0];
             let vout_n = parseInt(sArr[1]);
