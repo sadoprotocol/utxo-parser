@@ -40,7 +40,22 @@ async function getOrdinals(outpoint) {
           let entry = await Ord.gie(res.inscriptions[u]);
 
           if (entry && entry.media_type) {
-            result[s].inscriptions.push({ ...{ id: res.inscriptions[u] }, ...entry });
+            // get location and owner
+            let satpoint = await Ord.find(entry.sat);
+            let sArr = satpoint.split(':');
+            let txid = sArr[0];
+            let vout_n = parseInt(sArr[1]);
+            let ord_n = parseInt(sArr[2]);
+
+            let tx = await transaction(txid);
+
+            let voutIndex = tx.vout.findIndex(item => {
+              return item.n === vout_n;
+            });
+
+            let owner = tx.vout[voutIndex].scriptPubKey.address;
+
+            result[s].inscriptions.push({ ...{ id: res.inscriptions[u], satpoint, owner }, ...entry });
           }
         }
       }

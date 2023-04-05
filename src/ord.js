@@ -53,6 +53,7 @@ exports.list = list;
 exports.gioo = gioo;
 exports.gie = gie;
 exports.traits = traits;
+exports.find = find;
 
 
 
@@ -103,6 +104,15 @@ async function gie(inscriptionId) {
 async function traits(sat) {
   try {
     let res = await rpc([ 'traits', sat ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function find(sat) {
+  try {
+    let res = await rpc([ 'find', sat ]);
     return parse(res);
   } catch (err) {
     return false;
