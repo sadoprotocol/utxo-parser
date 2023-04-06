@@ -289,6 +289,7 @@ function unspents_helper(address) {
   pipelines.push({
     $project: {
       _id: 0,
+      addressTo: 0
     }
   });
 
