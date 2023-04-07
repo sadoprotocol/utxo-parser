@@ -11,6 +11,8 @@ exports.balance = balance;
 exports.transaction = transaction;
 exports.transactions = transactions;
 exports.unspents = unspents;
+exports.relay = relay;
+
 
 async function getOrdinals(outpoint) {
   let result = [];
@@ -337,6 +339,10 @@ async function unspents(address) {
   }
 
   return unspents;
+}
+
+async function relay(hex) {
+  return await Rpc.sendRawTransaction(hex);
 }
 
 // ==

@@ -118,7 +118,8 @@ async function decodeScript(hex) {
 }
 
 async function sendRawTransaction(signedHex) {
-  return await rpc([ 'sendrawtransaction', signedHex ]);
+  let res = await rpc([ 'sendrawtransaction', signedHex ]);
+  return sanitize(res);
 }
 
 async function testMempoolAccept(signedHexArray) {
