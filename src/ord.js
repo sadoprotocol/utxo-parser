@@ -4,6 +4,7 @@ const { spawn } = require("child_process");
 
 const network = process.env.NETWORK;
 const ordCommand = process.env.ORDCOMMAND || "ord";
+const altCommandDir = process.env.ALTORDCOMMANDDIR || "";
 
 const networkFlag = {
   "mainnet": "",
@@ -48,6 +49,31 @@ function rpc(arg = []) {
   });
 }
 
+async function caller(arg = []) {
+  let res = await rpc(arg);
+
+  if (
+    res.includes('Database already open. Cannot acquire lock.')
+    && altCommandDir.trim() !== ''
+  ) {
+    // ord@afwcxx --data-dir /home/bitcoin/ord-data/ --index-sats index
+    let newArg = [];
+
+    for (let m = 0; m < arg.length; m++) {
+      newArg.push(arg[m]);
+
+      if (arg[m].includes(ordCommand)) {
+        newArg.push("--data-dir");
+        newArg.push(altCommandDir);
+      }
+    }
+
+    res = await rpc(newArg);
+  }
+
+  return res;
+}
+
 // exports.getBlockHash = getBlockHash;
 exports.list = list;
 exports.gioo = gioo;
@@ -69,14 +95,9 @@ function parse(aString) {
 
 // === callers
 
-// async function getBlockHash(number) {
-//   let res = await rpc([ 'getblockhash', number ]);
-//   return sanitize(res);
-// }
-
 async function list(outpoint) {
   try {
-    let res = await rpc([ 'list', outpoint ]);
+    let res = await caller([ 'list', outpoint ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -85,7 +106,7 @@ async function list(outpoint) {
 
 async function gioo(outpoint) {
   try {
-    let res = await rpc([ 'gioo', outpoint ]);
+    let res = await caller([ 'gioo', outpoint ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -94,7 +115,7 @@ async function gioo(outpoint) {
 
 async function gie(inscriptionId) {
   try {
-    let res = await rpc([ 'gie', inscriptionId ]);
+    let res = await caller([ 'gie', inscriptionId ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -103,7 +124,7 @@ async function gie(inscriptionId) {
 
 async function traits(sat) {
   try {
-    let res = await rpc([ 'traits', sat ]);
+    let res = await caller([ 'traits', sat ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -112,7 +133,7 @@ async function traits(sat) {
 
 async function find(sat) {
   try {
-    let res = await rpc([ 'find', sat ]);
+    let res = await caller([ 'find', sat ]);
     return parse(res);
   } catch (err) {
     return false;

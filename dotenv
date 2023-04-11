@@ -23,4 +23,5 @@ CRAWLERMAXBLOCK=0
 
 # ORD
 ORDCOMMAND="ord@afwcxx"
+ALTORDCOMMANDDIR="/home/bitcoin/ord-data/"
 

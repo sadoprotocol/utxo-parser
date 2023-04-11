@@ -50,7 +50,7 @@ async function getOrdinals(outpoint) {
             let vout_n = parseInt(sArr[1]);
             let ord_n = parseInt(sArr[2]);
 
-            let tx = await transaction(txid, false);
+            let tx = await transaction(txid, { ord: false });
 
             let voutIndex = tx.vout.findIndex(item => {
               return item.n === vout_n;
@@ -138,12 +138,16 @@ function balance(address) {
   });
 }
 
-async function transaction(txid, ord = true) {
+async function transaction(txid, options = {}) {
   let tx = await Rpc.getRawTransaction(txid);
+
+  if (options.ord === undefined) {
+    options.ord = true;
+  }
 
   if (tx) {
     for (let i = 0; i < tx.vout.length; i++) {
-      if (ord) {
+      if (options.ord) {
         let outpoint = txid + ":" + tx.vout[i].n;
         tx.vout[i].ordinals = await getOrdinals(outpoint);
       }
