@@ -69,7 +69,9 @@ exports.getIndexInfo = getIndexInfo;
 
 
 function sanitize(aString) {
-  return aString.replace(/(\r\n|\n|\r|")/gm, "");
+  aString = aString.replace(/(\r\n|\n|\r)/gm, "");
+  // https://stackoverflow.com/a/19156525/2037746
+  return aString.replace(/^"(.*)"$/, '$1');
 }
 
 function parse(aString) {
