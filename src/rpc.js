@@ -69,7 +69,7 @@ exports.getIndexInfo = getIndexInfo;
 
 
 function sanitize(aString) {
-  return aString.replace(/(\r\n|\n|\r)/gm, "");
+  return aString.replace(/(\r\n|\n|\r|")/gm, "");
 }
 
 function parse(aString) {
