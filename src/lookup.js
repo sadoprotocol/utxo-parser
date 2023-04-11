@@ -58,7 +58,9 @@ async function getOrdinals(outpoint) {
 
             let owner = tx.vout[voutIndex].scriptPubKey.address;
 
-            result[s].inscriptions.push({ ...{ id: res.inscriptions[u], satpoint, owner }, ...entry });
+            if (ord_n === s) {
+              result[s].inscriptions.push({ ...{ id: res.inscriptions[u], satpoint, owner }, ...entry });
+            }
           }
         }
       }
