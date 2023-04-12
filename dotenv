@@ -23,5 +23,5 @@ CRAWLERMAXBLOCK=0
 
 # ORD
 ORDCOMMAND="ord@afwcxx"
-ORDINSCRIPTIONMEDIAURL="http://regtest.ordit.io/utxo/inscriptions/media/<outpoint>/<id>"
+ORDINSCRIPTIONMEDIAURL="http://regtest.ordit.io/utxo/inscriptions/<outpoint>/<id>/media"
 
