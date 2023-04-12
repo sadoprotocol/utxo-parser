@@ -23,5 +23,5 @@ CRAWLERMAXBLOCK=0
 
 # ORD
 ORDCOMMAND="ord@afwcxx"
-ALTORDCOMMANDDIR="/home/bitcoin/ord-data/"
+ORDINSCRIPTIONMEDIAURL="http://regtest.ordit.io/utxo/inscriptions/<outpoint>"
 

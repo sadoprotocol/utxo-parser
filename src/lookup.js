@@ -5,6 +5,7 @@ const Ord = require('../src/ord');
 const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
+const inscriptionUrl = process.env.ORDINSCRIPTIONMEDIAURL || "";
 
 
 exports.balance = balance;
@@ -12,6 +13,7 @@ exports.transaction = transaction;
 exports.transactions = transactions;
 exports.unspents = unspents;
 exports.relay = relay;
+exports.inscriptions = getInscriptions;
 
 
 async function getOrdinals(outpoint) {
@@ -33,9 +35,13 @@ async function getOrdinals(outpoint) {
   return result;
 }
 
-async function getInscriptions(outpoint) {
+async function getInscriptions(outpoint, options = {}) {
   let result = [];
   let res = await Ord.gioo(outpoint);
+
+  if (options.full === undefined) {
+    options.full = true;
+  }
 
   if (
     res 
@@ -47,6 +53,10 @@ async function getInscriptions(outpoint) {
       let entry = await Ord.gie(res.inscriptions[u]);
 
       if (entry && entry.media_type) {
+        if (!options.full) {
+          entry.media_type = inscriptionUrl.replace("<outpoint>", outpoint); 
+        }
+
         let oArr = outpoint.split(":");
         let txid = oArr[0];
         let vout_n = parseInt(oArr[1]);
@@ -146,7 +156,7 @@ async function transaction(txid, options = {}) {
       if (options.ord) {
         let outpoint = txid + ":" + tx.vout[i].n;
         tx.vout[i].ordinals = await getOrdinals(outpoint);
-        tx.vout[i].inscriptions = await getInscriptions(outpoint);
+        tx.vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
       }
 
       if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
@@ -265,7 +275,7 @@ async function transactions(address) {
     for (let i = 0; i < transactions[t].vout.length; i++) {
       let outpoint = txid + ":" + transactions[t].vout[i].n;
       transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
-      transactions[t].vout[i].inscriptions = await getInscriptions(outpoint);
+      transactions[t].vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
 
       if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
         transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
@@ -336,7 +346,7 @@ async function unspents(address) {
   for (let i = 0; i < unspents.length; i++) {
     let outpoint = unspents[i].txid + ":" + unspents[i].n;
     unspents[i].ordinals = await getOrdinals(outpoint);
-    unspents[i].inscriptions = await getInscriptions(outpoint);
+    unspents[i].inscriptions = await getInscriptions(outpoint, { full: false });
 
     if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
       unspents[i].scriptPubKey.utf8 = getNullDataUtf8(unspents[i].scriptPubKey.asm);
