@@ -48,10 +48,12 @@ async function getInscriptions(outpoint) {
 
       if (entry && entry.media_type) {
         let oArr = outpoint.split(":");
-        let tx = await transaction(oArr[0], { ord: false });
+        let txid = oArr[0];
+        let vout_n = parseInt(oArr[1]);
+        let tx = await transaction(txid, { ord: false });
 
         let voutIndex = tx.vout.findIndex(item => {
-          return item.n === oArr[1];
+          return item.n === vout_n;
         });
 
         let owner = tx.vout[voutIndex].scriptPubKey.address;
