@@ -47,7 +47,8 @@ async function getInscriptions(outpoint) {
       let entry = await Ord.gie(res.inscriptions[u]);
 
       if (entry && entry.media_type) {
-        let tx = await transaction(txid, { ord: false });
+        let oArr = outpoint.split(":");
+        let tx = await transaction(oArr[0], { ord: false });
 
         let voutIndex = tx.vout.findIndex(item => {
           return item.n === vout_n;
