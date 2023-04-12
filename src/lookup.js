@@ -51,7 +51,7 @@ async function getInscriptions(outpoint) {
         let tx = await transaction(oArr[0], { ord: false });
 
         let voutIndex = tx.vout.findIndex(item => {
-          return item.n === vout_n;
+          return item.n === oArr[1];
         });
 
         let owner = tx.vout[voutIndex].scriptPubKey.address;
