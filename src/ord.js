@@ -131,6 +131,7 @@ async function traits(sat) {
   }
 }
 
+// Caution: very slow
 async function find(sat) {
   try {
     let res = await caller([ 'find', sat ]);

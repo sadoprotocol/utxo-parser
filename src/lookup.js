@@ -27,42 +27,35 @@ async function getOrdinals(outpoint) {
       if (traits && traits.name) {
         result[s] = { ...traits, ...result[s] };
       }
+    }
+  }
 
-      let res = await Ord.gioo(outpoint);
+  return result;
+}
 
-      if (
-        res 
-        && res.inscriptions 
-        && Array.isArray(res.inscriptions)
-        && res.inscriptions.length
-      ) {
-        result[s].inscriptions = [];
+async function getInscriptions(outpoint) {
+  let result = [];
+  let res = await Ord.gioo(outpoint);
 
-        for (let u = 0; u < res.inscriptions.length; u++) {
-          let entry = await Ord.gie(res.inscriptions[u]);
+  if (
+    res 
+    && res.inscriptions 
+    && Array.isArray(res.inscriptions)
+    && res.inscriptions.length
+  ) {
+    for (let u = 0; u < res.inscriptions.length; u++) {
+      let entry = await Ord.gie(res.inscriptions[u]);
 
-          if (entry && entry.media_type) {
-            // get location and owner
-            let satFound = await Ord.find(entry.sat);
-            let satpoint = satFound.satpoint;
-            let sArr = satpoint.split(':');
-            let txid = sArr[0];
-            let vout_n = parseInt(sArr[1]);
-            let ord_n = parseInt(sArr[2]);
+      if (entry && entry.media_type) {
+        let tx = await transaction(txid, { ord: false });
 
-            let tx = await transaction(txid, { ord: false });
+        let voutIndex = tx.vout.findIndex(item => {
+          return item.n === vout_n;
+        });
 
-            let voutIndex = tx.vout.findIndex(item => {
-              return item.n === vout_n;
-            });
+        let owner = tx.vout[voutIndex].scriptPubKey.address;
 
-            let owner = tx.vout[voutIndex].scriptPubKey.address;
-
-            if (ord_n === s) {
-              result[s].inscriptions.push({ ...{ id: res.inscriptions[u], satpoint, owner }, ...entry });
-            }
-          }
-        }
+        result.push({ ...{ id: res.inscriptions[u], outpoint, owner }, ...entry });
       }
     }
   }
@@ -150,6 +143,7 @@ async function transaction(txid, options = {}) {
       if (options.ord) {
         let outpoint = txid + ":" + tx.vout[i].n;
         tx.vout[i].ordinals = await getOrdinals(outpoint);
+        tx.vout[i].inscriptions = await getInscriptions(outpoint);
       }
 
       if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
@@ -268,6 +262,7 @@ async function transactions(address) {
     for (let i = 0; i < transactions[t].vout.length; i++) {
       let outpoint = txid + ":" + transactions[t].vout[i].n;
       transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
+      transactions[t].vout[i].inscriptions = await getInscriptions(outpoint);
 
       if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
         transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
@@ -338,6 +333,7 @@ async function unspents(address) {
   for (let i = 0; i < unspents.length; i++) {
     let outpoint = unspents[i].txid + ":" + unspents[i].n;
     unspents[i].ordinals = await getOrdinals(outpoint);
+    unspents[i].inscriptions = await getInscriptions(outpoint);
 
     if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
       unspents[i].scriptPubKey.utf8 = getNullDataUtf8(unspents[i].scriptPubKey.asm);
