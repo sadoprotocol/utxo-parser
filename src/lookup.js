@@ -54,7 +54,7 @@ async function getInscriptions(outpoint, options = {}) {
 
       if (entry && entry.media_type) {
         if (!options.full) {
-          entry.media_content = inscriptionUrl.replace("<outpoint>", outpoint); 
+          entry.media_content = inscriptionUrl.replace("<outpoint>", outpoint).replace("<id>", res.inscriptions[u]); 
         }
 
         let oArr = outpoint.split(":");
