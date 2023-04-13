@@ -48,6 +48,21 @@ function rpc(arg = []) {
   });
 }
 
+async function call(arg = [], counter = 1) {
+  let res = await rpc(arg);
+
+  if (
+    res.includes('Database already open. Cannot acquire lock.')
+    && counter < 5
+  ) {
+    let wait = Math.floor(Math.random() * 4 + 1) * 100;
+    await new Promise(resolve => setTimeout(resolve, wait));
+    return await rpc(arg, counter++);
+  }
+
+  return res;
+}
+
 // exports.getBlockHash = getBlockHash;
 exports.list = list;
 exports.gioo = gioo;
@@ -71,7 +86,7 @@ function parse(aString) {
 
 async function list(outpoint) {
   try {
-    let res = await rpc([ 'list', outpoint ]);
+    let res = await call([ 'list', outpoint ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -80,7 +95,7 @@ async function list(outpoint) {
 
 async function gioo(outpoint) {
   try {
-    let res = await rpc([ 'gioo', outpoint ]);
+    let res = await call([ 'gioo', outpoint ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -89,7 +104,7 @@ async function gioo(outpoint) {
 
 async function gie(inscriptionId) {
   try {
-    let res = await rpc([ 'gie', inscriptionId ]);
+    let res = await call([ 'gie', inscriptionId ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -98,7 +113,7 @@ async function gie(inscriptionId) {
 
 async function traits(sat) {
   try {
-    let res = await rpc([ 'traits', sat ]);
+    let res = await call([ 'traits', sat ]);
     return parse(res);
   } catch (err) {
     return false;
@@ -108,7 +123,7 @@ async function traits(sat) {
 // Caution: very slow
 async function find(sat) {
   try {
-    let res = await rpc([ 'find', sat ]);
+    let res = await call([ 'find', sat ]);
     return parse(res);
   } catch (err) {
     return false;
