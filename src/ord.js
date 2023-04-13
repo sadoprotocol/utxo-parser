@@ -57,7 +57,7 @@ async function call(arg = [], counter = 1) {
   ) {
     let wait = Math.floor(Math.random() * 4 + 1) * 100;
     await new Promise(resolve => setTimeout(resolve, wait));
-    return await rpc(arg, counter++);
+    return await call(arg, counter++);
   }
 
   return res;
