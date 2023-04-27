@@ -27,10 +27,15 @@ if (!args.length) {
     Lookup[args[0]](args[1]).then(res => {
       let start = Date.now();
       console.log(JSON.stringify(res));
-      let timeTaken = Date.now() - start;
+      let timeTaken = (Date.now() - start) * 100;
+
+      if (timeTaken > 3000) {
+        timeTaken = 3000;
+      }
+
       setTimeout(() => {
         process.exit(0);
-      }, timeTaken * 100);
+      }, timeTaken);
     }).catch(err => {
       console.log("Lookup uncought error", err);
       process.exit(0);
