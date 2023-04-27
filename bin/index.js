@@ -30,7 +30,7 @@ if (!args.length) {
       let timeTaken = Date.now() - start;
       setTimeout(() => {
         process.exit(0);
-      }, timeTaken);
+      }, timeTaken * 100);
     }).catch(err => {
       console.log("Lookup uncought error", err);
       process.exit(0);
