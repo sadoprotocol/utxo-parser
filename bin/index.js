@@ -25,10 +25,12 @@ if (!args.length) {
 } else if (lookupFunctions.includes(args[0]) && args[1]) {
   MongoDB.connect().then(() => {
     Lookup[args[0]](args[1]).then(res => {
+      let start = Date.now();
       console.log(JSON.stringify(res));
+      let timeTaken = Date.now() - start;
       setTimeout(() => {
         process.exit(0);
-      }, 500);
+      }, timeTaken);
     }).catch(err => {
       console.log("Lookup uncought error", err);
       process.exit(0);

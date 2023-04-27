@@ -151,7 +151,7 @@ async function transaction(txid, options = {}) {
     options.ord = true;
   }
 
-  if (tx) {
+  if (tx && Array.isArray(tx.vout)) {
     for (let i = 0; i < tx.vout.length; i++) {
       if (options.ord) {
         let outpoint = txid + ":" + tx.vout[i].n;
@@ -234,7 +234,8 @@ function transactions_helper(address) {
             inCounter--;
 
             if (inCounter === 0 && outCounter === 0 && goneOut) {
-              resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
+              // resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
+              resolve(outs);
             }
           });
         }
@@ -251,7 +252,8 @@ function transactions_helper(address) {
             outCounter--;
 
             if (inCounter === 0 && outCounter === 0) {
-              resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
+              // resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
+              resolve(outs);
             }
           });
         }
@@ -272,13 +274,15 @@ async function transactions(address) {
   for (let t = 0; t < transactions.length; t++) {
     let txid = transactions[t].txid;
 
-    for (let i = 0; i < transactions[t].vout.length; i++) {
-      let outpoint = txid + ":" + transactions[t].vout[i].n;
-      transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
-      transactions[t].vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
+    if (Array.isArray(transactions[t].vout)) {
+      for (let i = 0; i < transactions[t].vout.length; i++) {
+        let outpoint = txid + ":" + transactions[t].vout[i].n;
+        transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
+        transactions[t].vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
 
-      if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
-        transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
+        if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
+          transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
+        }
       }
     }
   }
