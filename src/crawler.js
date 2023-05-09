@@ -255,6 +255,9 @@ async function prepare() {
         "addressTo": 1
       },
       {
+        "blockN": 1
+      },
+      {
         "addressTo": 1,
         "txHash": 1,
         "n": 1
