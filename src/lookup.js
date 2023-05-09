@@ -147,6 +147,8 @@ function balance(address) {
 async function transaction(txid, options = {}) {
   let tx = await Rpc.getRawTransaction(txid);
 
+  tx = await expandTxData(tx);
+
   if (options.ord === undefined) {
     options.ord = true;
   }
@@ -272,6 +274,8 @@ async function transactions(address) {
   let transactions = await transactions_helper(address);
 
   for (let t = 0; t < transactions.length; t++) {
+    transactions[t] = await expandTxData(transactions[t]);
+
     let txid = transactions[t].txid;
 
     if (Array.isArray(transactions[t].vout)) {
@@ -366,6 +370,41 @@ async function relay(hex) {
 
 // ==
 
+async function expandTxData(tx) {
+  if (
+    typeof tx === 'object' 
+    && Array.isArray(tx.vin)
+    && Array.isArray(tx.vout)
+  ) {
+    let totalIn = 0;
+    let totalOut = 0;
+
+    // build vin value and address
+    for (let i = 0; i < tx.vin.length; i++) {
+      let vinTx = await Rpc.getRawTransaction(tx.vin[i].txid);
+
+      if (
+        vinTx 
+        && Array.isArray(vinTx.vout)
+        && vinTx.vout[tx.vin[i].vout].n === tx.vin[i].vout
+      ) {
+        tx.vin[i].value = vinTx.vout[tx.vin[i].vout].value;
+        tx.vin[i].address = (await Rpc.deriveAddresses(vinTx.vout[tx.vin[i].vout].scriptPubKey.desc))[0];
+
+        totalIn = arithmetic("+", totalIn, vinTx.vout[tx.vin[i].vout].value, 8);
+      }
+    }
+
+    for (let i = 0; i < tx.vout.length; i++) {
+      totalOut = arithmetic("+", totalOut, tx.vout[i].value, 8);
+    }
+
+    tx.fee = arithmetic("-", totalIn, totalOut, 8);
+  }
+
+  return tx;
+}
+
 function intToStr(num, decimal) {
   if (typeof num === 'string') {
     num = num.replace(',', '');
@@ -379,6 +418,25 @@ function intToStr(num, decimal) {
   let b = new BigDecimal("1" + "0".repeat(decimal));
 
   return a.divide(b).toString();
+}
+
+function arithmetic(operation, a, b, decimal) {
+  // Replace coma if exists
+  let re = new RegExp(',', 'g');
+  a = parseFloat(a.toString().replace(re, ''));
+  b = parseFloat(b.toString().replace(re, ''));
+
+  // To integer
+  a = a * (10 ** decimal);
+  b = b * (10 ** decimal);
+
+  if (operation === '+') {
+    return intToStr(a + b, decimal);
+  } else if (operation === '-') {
+    return intToStr(a - b, decimal);
+  } else {
+    return false;
+  }
 }
 
 class BigDecimal {
