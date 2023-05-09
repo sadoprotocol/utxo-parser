@@ -178,7 +178,7 @@ async function detectReorg(blockN) {
 async function scanReorg(blockN) {
   assertBlockN(blockN);
 
-  // go backwards 50 blocks
+  // go backwards 10 blocks
   let minBlockN = parseInt(blockN * reorgMin);
   let detected = await detectReorg(blockN);
 
@@ -192,7 +192,7 @@ async function scanReorg(blockN) {
     }
 
     detected = await detectReorg(blockN);
-    blockN -= 50;
+    blockN -= 10;
   }
 
   return detected;
