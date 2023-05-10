@@ -233,9 +233,6 @@ async function prepare() {
   let createCollectionsIndex = {
     "vin": [
       {
-        "addressFrom": 1
-      },
-      {
         "prev_txid": 1,
         "vout": 1
       },
@@ -248,12 +245,13 @@ async function prepare() {
         "addressFrom": 1,
         "blockN": -1,
         "n": 1
+      },
+      {
+        "blockN": -1,
+        "n": 1
       }
     ],
     "vout": [
-      {
-        "addressTo": 1
-      },
       {
         "blockN": 1
       },
@@ -264,6 +262,10 @@ async function prepare() {
       },
       {
         "addressTo": 1,
+        "blockN": -1,
+        "n": 1
+      },
+      {
         "blockN": -1,
         "n": 1
       }
