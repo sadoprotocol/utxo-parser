@@ -6,17 +6,46 @@ const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
 const inscriptionUrl = process.env.ORDINSCRIPTIONMEDIAURL || "";
+const repeaterWait = process.env.CACHEREPEATER || 5;
 
 
+exports.prepare = prepare;
 exports.balance = balance;
 exports.transaction = transaction;
 exports.transactions = transactions;
 exports.unspents = unspents;
 exports.relay = relay;
-exports.inscriptions = getInscriptions;
+exports.inscriptions = get_inscriptions;
+exports.transactions_repeater = transactions_repeater;
 
 
-async function getOrdinals(outpoint) {
+
+async function prepare() {
+  // Create collection and indexes
+  let createCollections = [ 'address_transactions' ];
+  let createCollectionsIndex = {
+    "address_transactions": [
+      {
+        "address": 1,
+        "blockheight": 1
+      },
+      {
+        "address": 1,
+        "blockheight": -1
+      }
+    ]
+  };
+
+  await Mongo.createCollectionAndIndexes(createCollections, createCollectionsIndex);
+
+  transactions_repeater().catch(err => {
+    console.log("Lookup transactions repeater uncought error", err);
+  });
+}
+
+// ==
+
+async function get_ordinals(outpoint) {
   let result = [];
   let sats = await Ord.list(outpoint);
 
@@ -35,7 +64,9 @@ async function getOrdinals(outpoint) {
   return result;
 }
 
-async function getInscriptions(outpoint, options = {}) {
+async function get_inscriptions(outpoint, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
   let result = [];
   let res = await Ord.gioo(outpoint);
 
@@ -76,7 +107,7 @@ async function getInscriptions(outpoint, options = {}) {
   return result;
 }
 
-function getNullDataUtf8(asm) {
+function get_null_data_utf8(asm) {
   if (asm.includes("OP_RETURN")) {
     asm = asm.replace("OP_RETURN", "").trim();
     let asmBuffer = Buffer.from(asm, "hex");
@@ -144,155 +175,369 @@ function balance(address) {
   });
 }
 
-async function transaction(txid, options = {}) {
-  let tx = await Rpc.getRawTransaction(txid);
+// == transaction
 
-  tx = await expandTxData(tx);
+async function expand_tx_data(tx, options) {
+  options = JSON.parse(JSON.stringify(options));
 
-  if (options.ord === undefined) {
-    options.ord = true;
-  }
+  if (
+    typeof tx === 'object' 
+    && Array.isArray(tx.vin)
+    && Array.isArray(tx.vout)
+  ) {
+    let totalIn = 0;
+    let totalOut = 0;
 
-  if (tx && Array.isArray(tx.vout)) {
+    // build vin value and address
+    for (let i = 0; i < tx.vin.length; i++) {
+      let vinTx = await Rpc.getRawTransaction(tx.vin[i].txid);
+
+      if (
+        vinTx 
+        && Array.isArray(vinTx.vout)
+        && vinTx.vout[tx.vin[i].vout].n === tx.vin[i].vout
+      ) {
+        tx.vin[i].value = vinTx.vout[tx.vin[i].vout].value;
+        tx.vin[i].address = (await Rpc.deriveAddresses(vinTx.vout[tx.vin[i].vout].scriptPubKey.desc))[0];
+
+        totalIn = arithmetic("+", totalIn, vinTx.vout[tx.vin[i].vout].value, 8);
+      }
+
+      if (
+        tx.vin[i].txinwitness 
+        && Array.isArray(tx.vin[i].txinwitness) 
+        && options.nowitness
+      ) {
+        delete tx.vin[i].txinwitness;
+      }
+    }
+
     for (let i = 0; i < tx.vout.length; i++) {
       if (options.ord) {
-        let outpoint = txid + ":" + tx.vout[i].n;
-        tx.vout[i].ordinals = await getOrdinals(outpoint);
-        tx.vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
+        let outpoint = tx.vout[i].txid + ":" + tx.vout[i].n;
+        tx.vout[i].ordinals = await get_ordinals(outpoint);
+        tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
       }
 
       if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
-        tx.vout[i].scriptPubKey.utf8 = getNullDataUtf8(tx.vout[i].scriptPubKey.asm);
+        tx.vout[i].scriptPubKey.utf8 = get_null_data_utf8(tx.vout[i].scriptPubKey.asm);
       }
+
+      totalOut = arithmetic("+", totalOut, tx.vout[i].value, 8);
     }
+
+    tx.fee = arithmetic("-", totalIn, totalOut, 8);
+
+    if (options.nohex) {
+      delete tx.hex;
+    }
+
+    // get the block height
+    let networkBlockHeight = await Rpc.getBlockCount();
+
+    tx.blockheight = (networkBlockHeight - tx.confirmations) + 1;
   }
 
   return tx;
 }
 
-function transactions_helper(address) {
+async function transaction(txid, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
+  if (options.ord === undefined) {
+    options.ord = true;
+  }
+
+  let tx = await Rpc.getRawTransaction(txid);
+
+  tx = await expand_tx_data(tx, options);
+
+  return tx;
+}
+
+// == transactions
+
+async function save_address_transaction(address, tx) {
+  const db = Mongo.getClient();
+
+  tx.address = address;
+
+  return await db.collection("address_transactions").updateOne({
+    "address": address,
+    "txid": tx.txid
+  }, {
+    $set: tx
+  }, {
+    upsert: true
+  });
+}
+
+function transactions_options(options) {
+  options = JSON.parse(JSON.stringify(options));
+
+  if (options.ord === undefined) {
+    options.ord = true;
+  }
+
+  if (!options.limit || isNaN(options.limit)) {
+    options.limit = 50;
+  }
+
+  if (options.nohex === undefined) {
+    options.nohex = false;
+  }
+
+  if (options.nowitness === undefined) {
+    options.nowitness = false;
+  }
+
+
+  if (options.before === undefined || isNaN(options.before)) {
+    options.before = 0;
+  }
+
+  return options;
+}
+
+function transactions_refresh_helper(address) {
   const db = Mongo.getClient();
 
   let promises = [];
   let pipelines = [];
 
+  let match = {
+    "addressFrom": address
+  };
+
   pipelines.push({
-    $match: {
-      "addressFrom": address
-    }
+    $match: match
   });
   pipelines.push({
-    $sort: {
-      "blockN": -1,
-      "n": 1
+    $group: {
+      _id: {
+        blockN: "$blockN",
+        txid: "$txid",
+      },
+      data: {
+        $push: {
+          n: "$n",
+          txid: "$txid",
+        },
+      },
     }
   });
   pipelines.push({
     $project: {
-      txid: 1,
+      blockN: "$_id.blockN",
+      txid: "$_id.txid"
+    }
+  });
+  pipelines.push({
+    $sort: {
+      blockN: -1,
     }
   });
 
-  promises.push(db.collection("vin").aggregate(pipelines, { allowDiskUse:true }).toArray());
+  promises.push(db.collection("vin").aggregate(pipelines));
 
   pipelines = [];
 
+  match = {
+    "addressTo": address
+  };
+
   pipelines.push({
-    $match: {
-      "addressTo": address
-    }
+    $match: match
   });
   pipelines.push({
-    $sort: {
-      "blockN": -1,
-      "n": 1
+    $group: {
+      _id: {
+        blockN: "$blockN",
+        txid: "$txid",
+      },
+      data: {
+        $push: {
+          n: "$n",
+          txid: "$txid",
+        },
+      },
     }
   });
   pipelines.push({
     $project: {
-      txid: 1,
+      blockN: "$_id.blockN",
+      txid: "$_id.txid"
+    }
+  });
+  pipelines.push({
+    $sort: {
+      blockN: -1,
     }
   });
 
-  promises.push(db.collection("vout").aggregate(pipelines, { allowDiskUse:true }).toArray());
+  promises.push(db.collection("vout").aggregate(pipelines));
 
-  return new Promise((resolve, reject) => {
-    Promise.all(promises).then(res => {
-      let outs = [];
-      let doneTxids = [];
-
-      let inCounter = 0;
-      let outCounter = 0;
-      let goneOut = res[1].length === 0 ? true : false;
-
-      for (let i = 0; i < res[0].length; i++) {
-        if (!doneTxids.includes(res[0][i].txid)) {
-          doneTxids.push(res[0][i].txid);
-
-          // get from rpc
-          inCounter++;
-          Rpc.getRawTransaction(res[0][i].txid).then(tx => {
-            outs.push(tx);
-            inCounter--;
-
-            if (inCounter === 0 && outCounter === 0 && goneOut) {
-              // resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
-              resolve(outs);
-            }
-          });
-        }
-      }
-
-      for (let i = 0; i < res[1].length; i++) {
-        if (!doneTxids.includes(res[1][i].txid)) {
-          doneTxids.push(res[1][i].txid);
-
-          // get from rpc
-          outCounter++;
-          Rpc.getRawTransaction(res[1][i].txid).then(tx => {
-            outs.push(tx);
-            outCounter--;
-
-            if (inCounter === 0 && outCounter === 0) {
-              // resolve(outs.sort((a,b) => a.confirmations - b.confirmations));
-              resolve(outs);
-            }
-          });
-        }
-
-        goneOut = true;
-      }
-
-      if (res[0].length === 0 && res[1].length === 0) {
-        resolve(outs);
-      }
-    }).catch(reject);
-  });
+  return Promise.all(promises);
 }
 
-async function transactions(address) {
-  let transactions = await transactions_helper(address);
+async function transactions_refresh(address) {
+  let doneTxids = [];
+  let res = await transactions_refresh_helper(address);
 
-  for (let t = 0; t < transactions.length; t++) {
-    transactions[t] = await expandTxData(transactions[t]);
+  while(await res[0].hasNext() || await res[1].hasNext()) {
+    if (await res[0].hasNext()) {
+      let doc = await res[0].next();
 
-    let txid = transactions[t].txid;
+      if (!doneTxids.includes(doc.txid)) {
+        doneTxids.push(doc.txid);
 
-    if (Array.isArray(transactions[t].vout)) {
-      for (let i = 0; i < transactions[t].vout.length; i++) {
-        let outpoint = txid + ":" + transactions[t].vout[i].n;
-        transactions[t].vout[i].ordinals = await getOrdinals(outpoint);
-        transactions[t].vout[i].inscriptions = await getInscriptions(outpoint, { full: false });
+        let tx = await transaction(doc.txid);
 
-        if (transactions[t].vout[i].scriptPubKey && transactions[t].vout[i].scriptPubKey.type === 'nulldata') {
-          transactions[t].vout[i].scriptPubKey.utf8 = getNullDataUtf8(transactions[t].vout[i].scriptPubKey.asm);
-        }
+        await save_address_transaction(address, tx);
+      }
+    }
+
+    if (await res[1].hasNext()) {
+      let doc = await res[1].next();
+
+      if (!doneTxids.includes(doc.txid)) {
+        doneTxids.push(doc.txid);
+
+        let tx = await transaction(doc.txid);
+
+        await save_address_transaction(address, tx);
       }
     }
   }
-
-  return transactions;
 }
+
+async function got_cache_transactions(address, options) {
+  options = JSON.parse(JSON.stringify(options));
+
+  const db = Mongo.getClient();
+
+  let pipelines = [];
+
+  let match = {
+    "address": address
+  };
+
+  if (options.before !== 0 && !isNaN(options.before)) {
+    match.blockheight = { $lte: options.before };
+  }
+
+  let sort = {
+    "address": 1,
+    "blockheight": -1
+  }
+
+  pipelines.push({
+    $match: match
+  });
+  pipelines.push({
+    $sort: sort
+  });
+  pipelines.push({
+    $project: {
+      _id: 0,
+      address: 0
+    }
+  });
+
+  let cursor = db.collection("address_transactions").aggregate(pipelines);
+  let counter = 0;
+  let result = [];
+  let blockheight = 0;
+
+  while(await cursor.hasNext()) {
+    counter++;
+
+    const doc = await cursor.next();
+
+    if (blockheight === doc.blockheight) {
+      // don't do anything
+    } else if (result.length >= options.limit) {
+      blockheight = doc.blockheight;
+      break;
+    }
+
+    result.push(doc);
+    blockheight = doc.blockheight;
+  }
+
+  options.before = blockheight;
+
+  if (counter < options.limit) {
+    options.before = false;
+  }
+
+  return {
+    txs: result,
+    options
+  }
+}
+
+function transactions(address, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
+  return new Promise(async (resolve, reject) => {
+    options = transactions_options(options);
+
+    try {
+      let gotCache = await got_cache_transactions(address, options);
+
+      if (gotCache && gotCache.txs && gotCache.txs.length) {
+        resolve(gotCache);
+        return;
+      }
+
+      setTimeout(async () => {
+        resolve(await got_cache_transactions(address, options));
+      }, 95000);
+
+      await transactions_refresh(address);
+
+      resolve(await got_cache_transactions(address, options));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function transactions_repeater() {
+  console.log("Repeating executing");
+
+  const db = Mongo.getClient();
+
+  let pipelines = [];
+
+  pipelines.push({
+    $group: {
+      _id: "$address",
+      count: {
+        $sum: 1
+      }
+    }
+  });
+
+  let cursor = db.collection("address_transactions").aggregate(pipelines);
+  let counter = 0;
+
+  while(await cursor.hasNext()) {
+    counter++;
+    const doc = await cursor.next();
+    await transactions_refresh(doc._id);
+  }
+
+  if (counter < 50) {
+    await new Promise(resolve => setTimeout(resolve, 300000));
+    await transactions_repeater();
+  } else {
+    await transactions_repeater();
+  }
+}
+
+// == unspents
 
 function unspents_helper(address) {
   const db = Mongo.getClient();
@@ -348,67 +593,31 @@ function unspents_helper(address) {
   });
 }
 
-async function unspents(address) {
+async function unspents(address, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
   let unspents = await unspents_helper(address);
 
   for (let i = 0; i < unspents.length; i++) {
     let outpoint = unspents[i].txid + ":" + unspents[i].n;
-    unspents[i].ordinals = await getOrdinals(outpoint);
-    unspents[i].inscriptions = await getInscriptions(outpoint, { full: false });
+    unspents[i].ordinals = await get_ordinals(outpoint);
+    unspents[i].inscriptions = await get_inscriptions(outpoint, { full: false });
 
     if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
-      unspents[i].scriptPubKey.utf8 = getNullDataUtf8(unspents[i].scriptPubKey.asm);
+      unspents[i].scriptPubKey.utf8 = get_null_data_utf8(unspents[i].scriptPubKey.asm);
     }
   }
 
   return unspents;
 }
 
+// == relay
+
 async function relay(hex) {
   return await Rpc.sendRawTransaction(hex);
 }
 
 // ==
-
-async function expandTxData(tx) {
-  if (
-    typeof tx === 'object' 
-    && Array.isArray(tx.vin)
-    && Array.isArray(tx.vout)
-  ) {
-    let totalIn = 0;
-    let totalOut = 0;
-
-    // build vin value and address
-    for (let i = 0; i < tx.vin.length; i++) {
-      let vinTx = await Rpc.getRawTransaction(tx.vin[i].txid);
-
-      if (
-        vinTx 
-        && Array.isArray(vinTx.vout)
-        && vinTx.vout[tx.vin[i].vout].n === tx.vin[i].vout
-      ) {
-        tx.vin[i].value = vinTx.vout[tx.vin[i].vout].value;
-        tx.vin[i].address = (await Rpc.deriveAddresses(vinTx.vout[tx.vin[i].vout].scriptPubKey.desc))[0];
-
-        totalIn = arithmetic("+", totalIn, vinTx.vout[tx.vin[i].vout].value, 8);
-      }
-    }
-
-    for (let i = 0; i < tx.vout.length; i++) {
-      totalOut = arithmetic("+", totalOut, tx.vout[i].value, 8);
-    }
-
-    tx.fee = arithmetic("-", totalIn, totalOut, 8);
-
-    // get the block height
-    let networkBlockHeight = await Rpc.getBlockCount();
-
-    tx.blockheight = (networkBlockHeight - tx.confirmations) + 1;
-  }
-
-  return tx;
-}
 
 function intToStr(num, decimal) {
   if (typeof num === 'string') {

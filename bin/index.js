@@ -11,17 +11,30 @@ const args = process.argv.slice(2);
 
 const lookupFunctions = ['balance', 'transaction', 'transactions', 'unspents', 'relay', 'inscriptions'];
 
-if (!args.length) {
+async function db_connect() {
   console.log("Trying to connect to MongoDB..");
-  MongoDB.connect().then(() => {
-    console.log("MongoDB connected.");
+  await MongoDB.connect();
+  console.log("MongoDB connected.");
+}
 
+if (!args.length || args[0] === 'indexer') {
+  db_connect().then(() => {
     Crawler.start(true).catch(err => {
       console.log("Crawler uncought error", err);
     });
   }).catch(err => {
     console.log("Problem connecting to MongoDB", err);
-  })
+  });
+} else if (args[0] === 'repeater') {
+  db_connect().then(() => {
+    console.log('Running repeater..');
+
+    Lookup.prepare().catch(err => {
+      console.log("Lookup prepare uncought error", err);
+    });
+  }).catch(err => {
+    console.log("Problem connecting to MongoDB", err);
+  });
 } else if (lookupFunctions.includes(args[0]) && args[1]) {
   if (args[2]) {
     try {

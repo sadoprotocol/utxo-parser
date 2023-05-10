@@ -13,6 +13,7 @@ const mongoConfig = {
 exports.getClient = getClient;
 exports.connect = connectServer;
 exports.disconnect = disconnect;
+exports.createCollectionAndIndexes = createCollectionAndIndexes;
 
 
 
@@ -59,6 +60,47 @@ async function connectServer() {
 function disconnect() {
   if (dbConnected) {
     dbConnected.close();
+  }
+}
+
+async function createCollectionAndIndexes(createCollections, createCollectionsIndex) {
+  if (!Array.isArray(createCollections)) {
+    throw new Error('Invalid createCollections data.');
+  }
+
+  if (typeof createCollectionsIndex !== 'object') {
+    throw new Error('Invalid createCollectionsIndex data.');
+  }
+
+  const db = getClient();
+
+  // Create collection and indexes
+  let collections = await db.listCollections().toArray();
+
+  for (let i = 0; i < collections.length; i++) {
+    if (collections[i].type === 'collection') {
+      let index = createCollections.indexOf(collections[i].name);
+
+      if (index > -1) {
+        createCollections.splice(index, 1);
+      }
+    }
+  }
+
+  for (let i = 0; i < createCollections.length; i++) {
+    let name = createCollections[i];
+
+    await db.createCollection(name);
+
+    console.log('Created new collection' + name + '.');
+
+    if (createCollectionsIndex[name]) {
+      // Create the indexes
+      for (let m = 0; m < createCollectionsIndex[name].length; m++) {
+        await db.collection(name).createIndex(createCollectionsIndex[name][m]);
+        console.log('Collection ' + name + ' is indexed [' + m + '].');
+      }
+    }
   }
 }
 
