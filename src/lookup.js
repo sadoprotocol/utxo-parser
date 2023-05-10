@@ -400,6 +400,11 @@ async function expandTxData(tx) {
     }
 
     tx.fee = arithmetic("-", totalIn, totalOut, 8);
+
+    // get the block height
+    let networkBlockHeight = await Rpc.getBlockCount();
+
+    tx.blockheight = (networkBlockHeight - tx.confirmations) + 1;
   }
 
   return tx;
