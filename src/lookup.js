@@ -214,7 +214,7 @@ async function expand_tx_data(tx, options) {
 
     for (let i = 0; i < tx.vout.length; i++) {
       if (options.ord) {
-        let outpoint = tx.vout[i].txid + ":" + tx.vout[i].n;
+        let outpoint = tx.txid + ":" + tx.vout[i].n;
         tx.vout[i].ordinals = await get_ordinals(outpoint);
         tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
       }
@@ -437,11 +437,27 @@ async function got_cache_transactions(address, options) {
   pipelines.push({
     $sort: sort
   });
+
+  let project = {
+    _id: 0,
+    address: 0
+  }
+
+  if (!options.ord) {
+    project['vout.ordinals'] = 0;
+    project['vout.inscriptions'] = 0;
+  }
+
+  if (options.nohex) {
+    project.hex = 0;
+  }
+
+  if (options.nowitness) {
+    project['vin.txinwitness'] = 0;
+  }
+
   pipelines.push({
-    $project: {
-      _id: 0,
-      address: 0
-    }
+    $project: project
   });
 
   let cursor = db.collection("address_transactions").aggregate(pipelines);
