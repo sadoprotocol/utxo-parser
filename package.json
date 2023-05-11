@@ -4,7 +4,8 @@
   "description": "Explorer for bitcoin and altcoin",
   "main": "bin/index.js",
   "scripts": {
-    "app": "bin/index.js"
+    "indexer": "node bin/index.js",
+    "repeater": "node bin/index.js repeater"
   },
   "author": "",
   "license": "ISC",
