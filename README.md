@@ -1,10 +1,11 @@
-# Bitcoin NodeJS Explorer
+# UTXO Parser
 
 ## Requirement
 
 1. NodeJS
-2. Bitcoin RPC
-3. MongoDB
+2. Bitcoin Full Node + Index
+3. Bitcoin RPC
+4. MongoDB
 
 
 ## Setup
@@ -12,7 +13,7 @@
 Enable `-txindex`. For example, `.bitcoin/bitcoin.conf`:
 
 ```
-rpcauth=bitcoin-testnet:3a009357ba2594fa9932e5e1096025d0$1eaf8394a350e21fc948fbc56d8f8efc185133ac8403207421b754ec1160666d
+rpcauth=<username>:<hashed_password>
 server=1
 txindex=1
 ```
@@ -20,36 +21,40 @@ txindex=1
 Set the following
 
 ```sh
-# Set the environment properly
+# Set the environment to proper values
 $ cp dotenv .env
 
 # Install dependencies
 $ npm install
 ```
 
-> Warning!
-> If you are indexing from block height 0
-> Set `CRAWLERMULTITHREAD=0` if the machine spec is low 
-> - Lower than 8GB memory
-> - Really slow CPU
-> Once it has at caught up, enabling `CRAWLERMULTITHREAD=1` should be alright.
-
 ## Usage
 
 > Perform all commands below from the root directory of the program
 
-### Crawl
+### Indexer
 
 ```sh
 # Start
-$ node bin/index.js
+$ npm run indexer
 
 # From a specific block height
 $ echo 2590 > data/block_n && node bin/index.js
 
 # Re-index
-$ rm data/block_n && node bin/index.js
+$ rm data/block_n
+$ npm run indexer
 ```
+
+### Repeater
+
+> Continue updating cache transactions
+
+```sh
+# Start
+$ npm run repeater
+```
+
 
 ### Address lookup
 
@@ -62,9 +67,12 @@ $ node bin/index.js transactions <address>
 
 # Unspents
 $ node bin/index.js unspents <address>
+
+# Transaction
+$ node bin/index.js transaction <txid>
 ```
 
-### Monitor
+### Monitor block progress
 
 ```sh
 # Watch the index
