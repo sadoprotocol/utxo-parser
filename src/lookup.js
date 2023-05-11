@@ -91,7 +91,7 @@ async function get_inscriptions(outpoint, options = {}) {
         let oArr = outpoint.split(":");
         let txid = oArr[0];
         let vout_n = parseInt(oArr[1]);
-        let tx = await transaction(txid, { ord: false });
+        let tx = await transaction(txid, { noord: true });
 
         let voutIndex = tx.vout.findIndex(item => {
           return item.n === vout_n;
@@ -213,7 +213,7 @@ async function expand_tx_data(tx, options) {
     }
 
     for (let i = 0; i < tx.vout.length; i++) {
-      if (options.ord) {
+      if (!options.noord) {
         let outpoint = tx.txid + ":" + tx.vout[i].n;
         tx.vout[i].ordinals = await get_ordinals(outpoint);
         tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
@@ -244,8 +244,8 @@ async function expand_tx_data(tx, options) {
 async function transaction(txid, options = {}) {
   options = JSON.parse(JSON.stringify(options));
 
-  if (options.ord === undefined) {
-    options.ord = true;
+  if (options.noord === undefined) {
+    options.noord = false;
   }
 
   let tx = await Rpc.getRawTransaction(txid);
@@ -275,8 +275,8 @@ async function save_address_transaction(address, tx) {
 function transactions_options(options) {
   options = JSON.parse(JSON.stringify(options));
 
-  if (options.ord === undefined) {
-    options.ord = true;
+  if (options.noord === undefined) {
+    options.noord = false;
   }
 
   if (!options.limit || isNaN(options.limit)) {
@@ -443,7 +443,7 @@ async function got_cache_transactions(address, options) {
     address: 0
   }
 
-  if (!options.ord) {
+  if (options.noord) {
     project['vout.ordinals'] = 0;
     project['vout.inscriptions'] = 0;
   }
@@ -615,9 +615,11 @@ async function unspents(address, options = {}) {
   let unspents = await unspents_helper(address);
 
   for (let i = 0; i < unspents.length; i++) {
-    let outpoint = unspents[i].txid + ":" + unspents[i].n;
-    unspents[i].ordinals = await get_ordinals(outpoint);
-    unspents[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+    if (!options.noord) {
+      let outpoint = unspents[i].txid + ":" + unspents[i].n;
+      unspents[i].ordinals = await get_ordinals(outpoint);
+      unspents[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+    }
 
     if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
       unspents[i].scriptPubKey.utf8 = get_null_data_utf8(unspents[i].scriptPubKey.asm);
