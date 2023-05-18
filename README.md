@@ -85,6 +85,9 @@ $ node bin/index.js mempool_info true
 
 # Ord Inscriptions
 $ node bin/index.js inscriptions <outpoint>
+
+# Is Ord indexing
+$ node bin/index.js indexing
 ```
 
 ### Monitor block progress
