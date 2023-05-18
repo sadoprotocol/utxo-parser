@@ -56,7 +56,7 @@ $ npm run repeater
 ```
 
 
-### Address lookup
+### Lookup functions
 
 ```sh
 # Balance
@@ -65,11 +65,26 @@ $ node bin/index.js balance <address>
 # Transactions
 $ node bin/index.js transactions <address>
 
+# Unconfirmed Transactions
+$ node bin/index.js unconfirmed_transactions <address>
+
 # Unspents
 $ node bin/index.js unspents <address>
 
 # Transaction
 $ node bin/index.js transaction <txid>
+
+# Unconfirmed Transaction
+$ node bin/index.js unconfirmed_transaction <wtxid>
+
+# Relay Transaction
+$ node bin/index.js relay <hex>
+
+# Mempool Information
+$ node bin/index.js mempool_info true
+
+# Ord Inscriptions
+$ node bin/index.js inscriptions <outpoint>
 ```
 
 ### Monitor block progress
