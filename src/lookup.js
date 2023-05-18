@@ -228,13 +228,15 @@ async function expand_tx_data(tx, options) {
       let spentRes = await Rpc.getTxOut(tx.txid, tx.vout[i].n);
 
       if (spentRes) {
-        tx.vout[i].spent = {
+        tx.vout[i].unspent = {
           bestblock: spentRes.bestblock,
           confirmations: spentRes.confirmations,
           coinbase: spentRes.coinbase
         };
-      } else {
         tx.vout[i].spent = false;
+      } else {
+        tx.vout[i].unspent = false;
+        tx.vout[i].spent = true;
       }
 
       totalOut = arithmetic("+", totalOut, tx.vout[i].value, 8);
