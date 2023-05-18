@@ -1,9 +1,11 @@
 "use strict";
 
 const { spawn } = require("child_process");
+const fs = require('fs');
 
 const network = process.env.NETWORK;
 const ordCommand = process.env.ORDCOMMAND || "ord";
+const ordDataDir = process.env.ORDDATADIR || "";
 
 const networkFlag = {
   "mainnet": "",
@@ -69,6 +71,7 @@ exports.gioo = gioo;
 exports.gie = gie;
 exports.traits = traits;
 exports.find = find;
+exports.indexing = indexing;
 
 
 
@@ -130,3 +133,16 @@ async function find(sat) {
   }
 }
 
+async function indexing() {
+  const path = ordDataDir + 'lock'
+
+  try {
+    if (fs.existsSync(path)) {
+      return true;
+    }
+
+    return false;
+  } catch(err) {
+    return false;
+  }
+}

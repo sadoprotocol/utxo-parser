@@ -6,10 +6,12 @@ require('dotenv').config();
 const MongoDB = require('../src/mongodb');
 const Crawler = require('../src/crawler');
 const Lookup = require('../src/lookup');
+const Ord = require('../src/ord');
 
 const args = process.argv.slice(2);
 
 const lookupFunctions = ['balance', 'transaction', 'unconfirmed_transaction', 'transactions', 'unconfirmed_transactions', 'unspents', 'inscriptions', 'relay', 'mempool_info'];
+const ordFunctions = ['indexing'];
 
 async function db_connect() {
   console.log("Trying to connect to MongoDB..");
@@ -65,6 +67,23 @@ if (!args.length || args[0] === 'indexer') {
   }).catch(err => {
     console.log("Problem connecting to MongoDB", err);
   })
+} else if (ordFunctions.includes(args[0])) {
+  Ord[args[0]]().then(res => {
+    let start = Date.now();
+    console.log(JSON.stringify(res));
+    let timeTaken = (Date.now() - start) * 100;
+
+    if (timeTaken > 3000) {
+      timeTaken = 3000;
+    }
+
+    setTimeout(() => {
+      process.exit(0);
+    }, timeTaken);
+  }).catch(err => {
+    console.log("Ord uncought error", err);
+    process.exit(0);
+  });
 } else {
   console.log("Can't help you..");
   process.exit(0);
