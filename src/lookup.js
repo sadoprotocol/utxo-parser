@@ -11,11 +11,13 @@ const inscriptionUrl = process.env.ORDINSCRIPTIONMEDIAURL || "";
 exports.prepare = prepare;
 exports.balance = balance;
 exports.transaction = transaction;
+exports.unconfirmed_transaction = unconfirmed_transaction;
 exports.transactions = transactions;
+exports.unconfirmed_transactions = unconfirmed_transactions;
 exports.unspents = unspents;
-exports.relay = relay;
 exports.inscriptions = get_inscriptions;
-exports.transactions_repeater = transactions_repeater;
+exports.relay = relay;
+exports.mempool_info = mempool_info;
 
 
 
@@ -222,6 +224,19 @@ async function expand_tx_data(tx, options) {
         tx.vout[i].scriptPubKey.utf8 = get_null_data_utf8(tx.vout[i].scriptPubKey.asm);
       }
 
+      // check if spent
+      let spentRes = await Rpc.getTxOut(tx.txid, tx.vout[i].n);
+
+      if (spentRes) {
+        tx.vout[i].spent = {
+          bestblock: spentRes.bestblock,
+          confirmations: spentRes.confirmations,
+          coinbase: spentRes.coinbase
+        };
+      } else {
+        tx.vout[i].spent = false;
+      }
+
       totalOut = arithmetic("+", totalOut, tx.vout[i].value, 8);
     }
 
@@ -252,6 +267,10 @@ async function transaction(txid, options = {}) {
   tx = await expand_tx_data(tx, options);
 
   return tx;
+}
+
+async function unconfirmed_transaction(wtxid) {
+  return await Rpc.getMempoolEntry(wtxid);
 }
 
 // == transactions
@@ -385,6 +404,8 @@ function transactions_refresh_helper(address) {
 async function transactions_refresh(address) {
   let doneTxids = [];
   let res = await transactions_refresh_helper(address);
+
+  console.log('refreshing', address);
 
   while(await res[0].hasNext() || await res[1].hasNext()) {
     if (await res[0].hasNext()) {
@@ -643,33 +664,6 @@ async function got_cache_transactions(address, options) {
   }
 }
 
-function transactions(address, options = {}) {
-  options = JSON.parse(JSON.stringify(options));
-
-  return new Promise(async (resolve, reject) => {
-    options = transactions_options(options);
-
-    try {
-      let gotCache = await got_cache_transactions(address, options);
-
-      if (gotCache && gotCache.txs && gotCache.txs.length) {
-        resolve(gotCache);
-        return;
-      }
-
-      setTimeout(async () => {
-        resolve(await got_cache_transactions(address, options));
-      }, 95000);
-
-      await transactions_refresh(address);
-
-      resolve(await got_cache_transactions(address, options));
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 async function transactions_repeater() {
   console.log("Repeating executing");
 
@@ -701,6 +695,43 @@ async function transactions_repeater() {
   } else {
     await transactions_repeater();
   }
+}
+
+function transactions(address, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
+  return new Promise(async (resolve, reject) => {
+    options = transactions_options(options);
+
+    try {
+      let gotCache = await got_cache_transactions(address, options);
+
+      if (gotCache && gotCache.txs && gotCache.txs.length) {
+        resolve(gotCache);
+        return;
+      }
+
+      setTimeout(async () => {
+        resolve(await got_cache_transactions(address, options));
+      }, 95000);
+
+      await transactions_refresh(address);
+
+      resolve(await got_cache_transactions(address, options));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function unconfirmed_transactions(noarg, options = {}) {
+  options = JSON.parse(JSON.stringify(options));
+
+  if (options.verbose === undefined) {
+    options.verbose = false;
+  }
+
+  return await Rpc.getRawMempool(options.verbose);
 }
 
 // == unspents
@@ -783,6 +814,12 @@ async function unspents(address, options = {}) {
 
 async function relay(hex) {
   return await Rpc.sendRawTransaction(hex);
+}
+
+// == mempool
+
+async function mempool_info(noarg) {
+  return await Rpc.getMempoolInfo();
 }
 
 // ==

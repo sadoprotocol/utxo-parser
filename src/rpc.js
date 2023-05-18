@@ -66,6 +66,10 @@ exports.sendRawTransaction = sendRawTransaction;
 exports.testMempoolAccept = testMempoolAccept;
 exports.estimateSmartFee = estimateSmartFee;
 exports.getIndexInfo = getIndexInfo;
+exports.getMempoolEntry = getMempoolEntry;
+exports.getTxOut = getTxOut;
+exports.getRawMempool = getRawMempool;
+exports.getMempoolInfo = getMempoolInfo;
 
 
 function sanitize(aString) {
@@ -109,6 +113,42 @@ async function deriveAddresses(descriptor) {
 async function getRawTransaction(txid) {
   try {
     let res = await rpc([ 'getrawtransaction', txid, true ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function getMempoolEntry(wtxid) {
+  try {
+    let res = await rpc([ 'getmempoolentry', wtxid ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function getTxOut(txid, n) {
+  try {
+    let res = await rpc([ 'gettxout', txid, n ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function getRawMempool(verbose = false) {
+  try {
+    let res = await rpc([ 'getrawmempool', verbose ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function getMempoolInfo() {
+  try {
+    let res = await rpc([ 'getmempoolinfo' ]);
     return parse(res);
   } catch (err) {
     return false;
