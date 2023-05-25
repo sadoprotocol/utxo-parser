@@ -6,6 +6,7 @@ const Mongo = require('../src/mongodb');
 
 const decimals = parseInt(process.env.DECIMALS);
 const inscriptionUrl = process.env.ORDINSCRIPTIONMEDIAURL || "";
+const ordCommand = process.env.ORDCOMMAND || "";
 
 
 exports.prepare = prepare;
@@ -216,8 +217,11 @@ async function expand_tx_data(tx, options) {
     for (let i = 0; i < tx.vout.length; i++) {
       if (!options.noord) {
         let outpoint = tx.txid + ":" + tx.vout[i].n;
-        tx.vout[i].ordinals = await get_ordinals(outpoint);
-        tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+
+        if (ordCommand) {
+          tx.vout[i].ordinals = await get_ordinals(outpoint);
+          tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+        }
       }
 
       if (tx.vout[i].scriptPubKey && tx.vout[i].scriptPubKey.type === 'nulldata') {
@@ -800,8 +804,11 @@ async function unspents(address, options = {}) {
   for (let i = 0; i < unspents.length; i++) {
     if (!options.noord) {
       let outpoint = unspents[i].txid + ":" + unspents[i].n;
-      unspents[i].ordinals = await get_ordinals(outpoint);
-      unspents[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+
+      if (ordCommand) {
+        unspents[i].ordinals = await get_ordinals(outpoint);
+        unspents[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+      }
     }
 
     if (unspents[i].scriptPubKey && unspents[i].scriptPubKey.type === 'nulldata') {
