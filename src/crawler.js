@@ -20,41 +20,7 @@ exports.start = start;
 // === vins / vouts
 
 function sats(a, decimal) {
-  a = a + "";
-
-  let b = "";
-  let counter = decimal;
-  let begin = false;
-  let length = decimal + a.length;
-
-  for (let i = 0; i < length; i++) {
-    if (a[i] === '.') {
-      begin = true;
-      continue;
-    }
-
-    if (begin === false && a[i] === "0") {
-      continue;
-    }
-
-    let num = a[i];
-
-    if (typeof a[i] === 'undefined') {
-      num = "0";
-    }
-
-    if (begin) {
-      counter--;
-    }
-
-    b += num;
-
-    if (counter === 0) {
-      break;
-    }
-  }
-
-  return parseInt(b);
+  return a * 10 ** decimal;
 }
 
 async function captureVin(vin, n) {
