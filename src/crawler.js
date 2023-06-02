@@ -20,7 +20,7 @@ exports.start = start;
 // === vins / vouts
 
 function sats(a, decimal) {
-  let res = a * 10 ** decimal;
+  let res = a * (10 ** decimal);
 
   if ((res + "").includes(".")) {
     res = Math.ceil(res);
