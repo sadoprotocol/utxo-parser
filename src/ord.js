@@ -6,6 +6,7 @@ const fs = require('fs');
 const network = process.env.NETWORK;
 const ordCommand = process.env.ORDCOMMAND || "ord";
 const ordDataDir = process.env.ORDDATADIR || "";
+const ordDataDupDir = process.env.ORDDATADIR || "";
 
 const networkFlag = {
   "mainnet": "",
@@ -72,6 +73,7 @@ exports.gie = gie;
 exports.traits = traits;
 exports.find = find;
 exports.indexing = indexing;
+exports.indexer_status = indexer_status;
 
 
 
@@ -142,6 +144,43 @@ async function indexing() {
     }
 
     return false;
+  } catch(err) {
+    return false;
+  }
+}
+
+async function indexer_status() {
+  const path = ordDataDir + 'height'
+  const pathDup = ordDataDupDir + 'height'
+
+  const firstIndexerRes = "not-found";
+  const secondIndexerRes = "not-found";
+
+  try {
+    if (fs.existsSync(path)) {
+      let data = fs.readFileSync(path, { encoding: 'utf8', flag: 'r' });
+
+      if (!isNaN(data)) {
+        firstIndexerRes = parseInt(data);
+      } else {
+        firstIndexerRes = data;
+      }
+    }
+
+    if (fs.existsSync(pathDup)) {
+      let data = fs.readFileSync(pathDup, { encoding: 'utf8', flag: 'r' });
+
+      if (!isNaN(data)) {
+        secondIndexerRes = parseInt(data);
+      } else {
+        secondIndexerRes = data;
+      }
+    }
+
+    return {
+      "first": firstIndexerRes,
+      "second": secondIndexerRes
+    };
   } catch(err) {
     return false;
   }

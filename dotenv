@@ -25,4 +25,5 @@ CRAWLERMAXBLOCK=0
 ORDCOMMAND="ord@afwcxx"
 ORDINSCRIPTIONMEDIAURL="http://regtest.ordit.io/utxo/inscriptions/<outpoint>/<id>/media"
 ORDDATADIR="/home/bitcoin-regtest/ord-data/regtest/"
+ORDDUPDATADIR="/home/bitcoin-regtest/ord-data-dup/regtest/"
 
