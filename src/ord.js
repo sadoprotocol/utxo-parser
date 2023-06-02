@@ -153,8 +153,8 @@ async function indexer_status() {
   const path = ordDataDir + 'height'
   const pathDup = ordDataDupDir + 'height'
 
-  const firstIndexerRes = "not-found";
-  const secondIndexerRes = "not-found";
+  let firstIndexerRes = "not-found";
+  let secondIndexerRes = "not-found";
 
   try {
     if (fs.existsSync(path)) {
