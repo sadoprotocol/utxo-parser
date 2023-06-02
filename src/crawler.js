@@ -20,7 +20,13 @@ exports.start = start;
 // === vins / vouts
 
 function sats(a, decimal) {
-  return a * 10 ** decimal;
+  let res = a * 10 ** decimal;
+
+  if ((res + "").includes(".")) {
+    res = Math.ceil(res);
+  }
+
+  return res;
 }
 
 async function captureVin(vin, n) {
