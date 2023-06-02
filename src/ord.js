@@ -6,7 +6,7 @@ const fs = require('fs');
 const network = process.env.NETWORK;
 const ordCommand = process.env.ORDCOMMAND || "ord";
 const ordDataDir = process.env.ORDDATADIR || "";
-const ordDataDupDir = process.env.ORDDATADIR || "";
+const ordDataDupDir = process.env.ORDDUPDATADIR || "";
 
 const networkFlag = {
   "mainnet": "",
