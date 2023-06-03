@@ -411,8 +411,6 @@ async function transactions_refresh(address) {
   let doneTxids = [];
   let res = await transactions_refresh_helper(address);
 
-  console.log('refreshing', address);
-
   while(await res[0].hasNext() || await res[1].hasNext()) {
     if (await res[0].hasNext()) {
       let doc = await res[0].next();
@@ -671,8 +669,6 @@ async function got_cache_transactions(address, options) {
 }
 
 async function transactions_repeater() {
-  console.log("Repeating executing");
-
   const db = Mongo.getClient();
 
   let pipelines = [];
