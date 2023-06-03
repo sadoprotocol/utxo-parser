@@ -22,7 +22,7 @@ CRAWLERINTERVAL=10 # in minutes
 CRAWLERMAXBLOCK=0
 
 # ORD
-ORDCOMMAND="ord@afwcxx"
+ORDCOMMAND="ord@cake"
 ORDINSCRIPTIONMEDIAURL="http://regtest.ordit.io/utxo/inscriptions/<outpoint>/<id>/media"
 ORDDATADIR="/home/bitcoin-regtest/ord-data/regtest/"
 ORDDUPDATADIR="/home/bitcoin-regtest/ord-data-dup/regtest/"
