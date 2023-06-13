@@ -19,6 +19,7 @@ exports.unspents = unspents;
 exports.inscriptions = get_inscriptions;
 exports.relay = relay;
 exports.mempool_info = mempool_info;
+exports.block_count = block_count;
 
 
 
@@ -825,6 +826,12 @@ async function relay(hex) {
 
 async function mempool_info(noarg) {
   return await Rpc.getMempoolInfo();
+}
+
+// == block
+
+async function block_count(noarg) {
+  return await Rpc.getBlockCount();
 }
 
 // ==

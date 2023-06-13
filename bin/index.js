@@ -10,7 +10,7 @@ const Ord = require('../src/ord');
 
 const args = process.argv.slice(2);
 
-const lookupFunctions = ['balance', 'transaction', 'unconfirmed_transaction', 'transactions', 'unconfirmed_transactions', 'unspents', 'inscriptions', 'relay', 'mempool_info'];
+const lookupFunctions = ['balance', 'transaction', 'unconfirmed_transaction', 'transactions', 'unconfirmed_transactions', 'unspents', 'inscriptions', 'relay', 'mempool_info', 'block_count'];
 const ordFunctions = ['indexing', 'indexer_status'];
 
 async function db_connect() {
