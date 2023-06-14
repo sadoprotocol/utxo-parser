@@ -156,7 +156,12 @@ async function getMempoolInfo() {
 }
 
 async function decodeScript(hex) {
-  return await rpc([ 'decodescript', hex ]);
+  try {
+    let res = await rpc([ 'decodescript', hex ]);
+    return parse(res);
+  } catch (err) {
+    return false;
+  }
 }
 
 async function sendRawTransaction(signedHex) {

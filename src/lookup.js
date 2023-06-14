@@ -191,6 +191,8 @@ async function expand_tx_data(tx, options) {
     let totalIn = 0;
     let totalOut = 0;
 
+    let oip1Meta = null;
+
     // build vin value and address
     for (let i = 0; i < tx.vin.length; i++) {
       let vinTx = await Rpc.getRawTransaction(tx.vin[i].txid);
@@ -209,6 +211,36 @@ async function expand_tx_data(tx, options) {
       if (
         tx.vin[i].txinwitness 
         && Array.isArray(tx.vin[i].txinwitness) 
+      ) {
+        for (let m = 0; m < tx.vin[i].txinwitness.length; m++) {
+          let oip1MetaIndex = tx.vin[i].txinwitness.findIndex(witnessItem => {
+            // 6170706c69636174696f6e2f6a736f6e3b636861727365743d7574662d38 = application/json;charset=utf-8
+            return witnessItem.includes("6170706c69636174696f6e2f6a736f6e3b636861727365743d7574662d38");
+          });
+
+          if (oip1MetaIndex !== -1) {
+            let decodedScript = await Rpc.decodeScript(tx.vin[i].txinwitness[oip1MetaIndex]);
+
+            if (decodedScript && decodedScript.asm) {
+              let splits = decodedScript.asm.split(" ");
+              let splitIndex = splits.findIndex(item => {
+                return item === "6170706c69636174696f6e2f6a736f6e3b636861727365743d7574662d38";
+              });
+
+              if (splitIndex !== -1 && splits[splitIndex + 2]) {
+                try {
+                  splits[splitIndex + 2] = Buffer.from(splits[splitIndex + 2], 'hex').toString("utf8");
+                  oip1Meta = JSON.parse(splits[splitIndex + 2]);
+                } catch (err) {}
+              }
+            }
+          }
+        }
+      }
+
+      if (
+        tx.vin[i].txinwitness 
+        && Array.isArray(tx.vin[i].txinwitness) 
         && options.nowitness
       ) {
         delete tx.vin[i].txinwitness;
@@ -222,6 +254,13 @@ async function expand_tx_data(tx, options) {
         if (ordCommand) {
           tx.vout[i].ordinals = await get_ordinals(outpoint);
           tx.vout[i].inscriptions = await get_inscriptions(outpoint, { full: false });
+
+          if (oip1Meta) {
+            tx.vout[i].inscriptions.map(v => {
+              v.meta = oip1Meta;
+              return v;
+            });
+          }
         }
       }
 
