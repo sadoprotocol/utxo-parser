@@ -6,6 +6,8 @@ DECIMALS=8
 REORGMIN=0.5
 
 # RPC
+RPCHOST="127.0.0.1"
+RPCPORT=18443
 RPCUSER="bitcoin-testnet"
 RPCPASSWORD="bitcoin-testnet"
 

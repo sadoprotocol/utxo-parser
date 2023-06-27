@@ -1,58 +1,72 @@
 "use strict";
+const http = require('http');
 
-const { spawn } = require("child_process");
-
-const network = process.env.NETWORK;
 const rpcCredential = {
+  host: process.env.RPCHOST,
+  port: process.env.RPCPORT,
   user: process.env.RPCUSER,
   password: process.env.RPCPASSWORD
 }
 
-const networkFlag = {
-  "mainnet": "",
-  "testnet": "--testnet",
-  "regtest": "--regtest"
-}
-
-if (networkFlag[network] === undefined) {
-  throw new Error('Unsupported network defined.');
-}
-
-function rpc(arg = []) {
+function rpc(method, args = []) {
   return new Promise((resolve, reject) => {
-    let commandArg = [];
+    let parseString = "";
 
-    if (networkFlag[network].trim() !== '') {
-      commandArg.push(networkFlag[network].trim());
+    for (let i = 0; i < args.length; i++) {
+      if (i > 0) {
+        parseString += ", ";
+      }
+
+      if (typeof args[i] === 'string') {
+        parseString += '"' + args[i] + '"';
+      } else {
+        parseString += '' + args[i];
+      }
     }
 
-    if (rpcCredential.user && rpcCredential.password) {
-      commandArg.push("-rpcuser=" + rpcCredential.user);
-      commandArg.push("-rpcpassword=" + rpcCredential.password);
-    }
+    const dataString = '{"jsonrpc": "1.0", "id": "curltest", "method": "' + method + '", "params": [' + parseString + ']}';
 
-    commandArg = commandArg.concat(arg);
+    const headers = {
+      'Content-Type': 'text/plain',
+      'Content-Length': Buffer.byteLength(dataString),
+    };
 
-    const exec = spawn("bitcoin-cli", commandArg);
+    const options = {
+      hostname: rpcCredential.host,
+      port: rpcCredential.port,
+      method: 'POST',
+      headers: headers,
+      auth: rpcCredential.user + ':' + rpcCredential.password
+    };
 
-    let output = '';
+    let bodyRes = "";
 
-    exec.stdout.on("data", data => {
-      output += data;
+    const req = http.request(options, (res) => {
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        bodyRes += chunk;
+      });
+      res.on('end', () => {
+        try {
+          bodyRes = JSON.parse(bodyRes);
+
+          if (bodyRes.result === null && bodyRes.error) {
+            reject(bodyRes.error.message);
+          } else {
+            resolve(bodyRes.result);
+          }
+        } catch (err) {
+          resolve(bodyRes);
+        }
+      });
     });
 
-    exec.stderr.on("data", data => {
-      output += data;
+    req.on('error', (e) => {
+      reject(e.message);
     });
 
-    exec.on('error', (error) => {
-      console.log(`error: ${error.message}`);
-      reject(`${error.message}`);
-    });
-
-    exec.on("close", code => {
-      resolve(`${output}`);
-    });
+    req.write(dataString);
+    req.end(); 
   });
 }
 
@@ -72,111 +86,58 @@ exports.getRawMempool = getRawMempool;
 exports.getMempoolInfo = getMempoolInfo;
 
 
-function sanitize(aString) {
-  aString = aString.replace(/(\r\n|\n|\r)/gm, "");
-  // https://stackoverflow.com/a/19156525/2037746
-  return aString.replace(/^"(.*)"$/, '$1');
-}
-
-function parse(aString) {
-  return JSON.parse(aString);
-}
-
 async function getBlockHash(number) {
-  let res = await rpc([ 'getblockhash', number ]);
-  return sanitize(res);
+  return await rpc('getblockhash', [ number ]);
 }
 
 async function getBlock(blockHash) {
-  try {
-    let res = await rpc([ 'getblock', blockHash, 2 ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc( 'getblock', [ blockHash, 2 ]);
 }
 
 async function getBlockCount() {
-  let res = await rpc([ 'getblockcount' ]);
-  return sanitize(res);
+  return await rpc('getblockcount');
 }
 
 async function deriveAddresses(descriptor) {
-  try {
-    let res = await rpc([ 'deriveaddresses', descriptor ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('deriveaddresses', [ descriptor ]);
 }
 
 async function getRawTransaction(txid) {
-  try {
-    let res = await rpc([ 'getrawtransaction', txid, true ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('getrawtransaction', [ txid, true ]);
 }
 
 async function getMempoolEntry(wtxid) {
-  try {
-    let res = await rpc([ 'getmempoolentry', wtxid ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('getmempoolentry', [ wtxid ]);
 }
 
 async function getTxOut(txid, n) {
-  try {
-    let res = await rpc([ 'gettxout', txid, n ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('gettxout', [ txid, n ]);
 }
 
 async function getRawMempool(verbose = false) {
-  try {
-    let res = await rpc([ 'getrawmempool', verbose ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('getrawmempool', [ verbose ]);
 }
 
 async function getMempoolInfo() {
-  try {
-    let res = await rpc([ 'getmempoolinfo' ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('getmempoolinfo');
 }
 
 async function decodeScript(hex) {
-  try {
-    let res = await rpc([ 'decodescript', hex ]);
-    return parse(res);
-  } catch (err) {
-    return false;
-  }
+  return await rpc('decodescript', [ hex ]);
 }
 
 async function sendRawTransaction(signedHex) {
-  let res = await rpc([ 'sendrawtransaction', signedHex ]);
-  return sanitize(res);
+  return await rpc('sendrawtransaction', [ signedHex ]);
 }
 
 async function testMempoolAccept(signedHexArray) {
-  return await rpc([ 'testmempoolaccept', signedHexArray ]);
+  return await rpc('testmempoolaccept', [ signedHexArray ]);
 }
 
 async function estimateSmartFee(numberOfBlocks) {
-  return await rpc([ 'estimatesmartfee', numberOfBlocks ]);
+  return await rpc('estimatesmartfee', [ numberOfBlocks ]);
 }
 
 async function getIndexInfo() {
-  return await rpc([ 'getindexinfo' ]);
+  return await rpc('getindexinfo');
 }
