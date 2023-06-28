@@ -227,10 +227,23 @@ async function expand_tx_data(tx, options) {
                 return item === "6170706c69636174696f6e2f6a736f6e3b636861727365743d7574662d38";
               });
 
-              if (splitIndex !== -1 && splits[splitIndex + 2]) {
+              let buildString = "";
+              let lookIndex = splitIndex + 2;
+
+              while(lookIndex !== false) {
+                let val = splits[lookIndex];
+
+                if (val === undefined || val === "0" || val.includes("OP")) {
+                  lookIndex = false;
+                } else {
+                  buildString += splits[lookIndex];
+                  lookIndex++;
+                }
+              }
+
+              if (buildString.trim() !== "") {
                 try {
-                  splits[splitIndex + 2] = Buffer.from(splits[splitIndex + 2], 'hex').toString("utf8");
-                  oip1Meta = JSON.parse(splits[splitIndex + 2]);
+                  oip1Meta = JSON.parse(Buffer.from(buildString, 'hex').toString("utf8"));
                 } catch (err) {}
               }
             }
