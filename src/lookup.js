@@ -83,18 +83,26 @@ async function get_inscriptions(outpoint, options = {}) {
     && Array.isArray(res.inscriptions)
     && res.inscriptions.length
   ) {
+    let oArr = outpoint.split(":");
+    let txid = oArr[0];
+    let vout_n = parseInt(oArr[1]);
+    let tx = await transaction(txid, { noord: true });
+
+    let giePromises = [];
+
     for (let u = 0; u < res.inscriptions.length; u++) {
-      let entry = await Ord.gie(res.inscriptions[u]);
+      giePromises.push(Ord.gie(res.inscriptions[u]));
+    }
+
+    let gieResults = await Promise.all(giePromises);
+
+    for (let u = 0; u < gieResults.length; u++) {
+      let entry = gieResults[u];
 
       if (entry && entry.media_type) {
         if (!options.full) {
           entry.media_content = inscriptionUrl.replace("<outpoint>", outpoint).replace("<id>", res.inscriptions[u]); 
         }
-
-        let oArr = outpoint.split(":");
-        let txid = oArr[0];
-        let vout_n = parseInt(oArr[1]);
-        let tx = await transaction(txid, { noord: true });
 
         let voutIndex = tx.vout.findIndex(item => {
           return item.n === vout_n;
