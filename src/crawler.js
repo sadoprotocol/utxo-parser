@@ -76,7 +76,15 @@ async function captureVin(vin, n) {
 }
 
 async function captureVout(vout) {
-  let derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
+  let derived = false;
+
+  try {
+    derived = await Rpc.deriveAddresses(vout.scriptPubKey.desc);
+  } catch(err) {
+    if (!err.includes("does not have a corresponding address")) {
+      throw err;
+    }
+  }
 
   if (derived) {
     const db = Mongo.getClient();
